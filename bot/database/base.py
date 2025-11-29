@@ -8,6 +8,9 @@ settings = Settings()
 class Base(DeclarativeBase):
     pass
 
+# Import models to register them with Base metadata
+from bot.database import models  # noqa: F401
+
 # Create async engine
 engine = create_async_engine(
     settings.DB_URL,
@@ -16,8 +19,8 @@ engine = create_async_engine(
 
 # Create async session maker
 async_session = sessionmaker(
-    engine, 
-    class_=AsyncSession, 
+    engine,
+    class_=AsyncSession,
     expire_on_commit=False
 )
 
