@@ -13,8 +13,9 @@ from bot.middlewares.auth import AdminAuthMiddleware
 from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
+from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
-from bot.states import TokenGenerationStates
+from bot.states import TokenGenerationStates, SubscriptionTierStates
 
 
 # Create router and apply middlewares
@@ -70,6 +71,15 @@ def get_free_menu_kb():
     keyboard.button(text="Configurar", callback_data="free_config")
     keyboard.button(text="Volver", callback_data="admin_main_menu")
     keyboard.adjust(2)  # 2 buttons per row
+    return keyboard.as_markup()
+
+
+def get_config_menu_kb():
+    """Generate Config menu keyboard with buttons: [Gestionar Tarifas, Volver]"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="Gestionar Tarifas", callback_data="config_tiers")
+    keyboard.button(text="Volver", callback_data="admin_main_menu")
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
 
@@ -199,12 +209,125 @@ async def free_config(callback_query: CallbackQuery):
 # Callback handlers for main menu options
 @admin_router.callback_query(F.data == "admin_config")
 async def admin_config(callback_query: CallbackQuery):
-    """Show general configuration options (to be implemented)."""
+    """Show general configuration options."""
     await safe_edit_message(
         callback_query,
-        "Configuración General\n(En desarrollo)",
-        reply_markup=get_main_menu_kb()
+        "Configuración General",
+        reply_markup=get_config_menu_kb()
     )
+
+
+@admin_router.callback_query(F.data == "config_tiers")
+async def manage_tiers_menu(callback_query: CallbackQuery, session: AsyncSession):
+    """Display a paginated list of all active subscription tiers."""
+    tiers = await ConfigService.get_all_tiers(session)
+    
+    keyboard = InlineKeyboardBuilder()
+    if not tiers:
+        text = "No hay tarifas de suscripción configuradas."
+    else:
+        text = "Seleccione una tarifa para editar o elija una acción:"
+        for tier in tiers:
+            keyboard.button(
+                text=f"🔹 {tier.name} (${tier.price_usd})",
+                callback_data=f"tier_edit_{tier.id}"
+            )
+    
+    keyboard.button(text="➕ Nueva Tarifa", callback_data="tier_new")
+    keyboard.button(text="Volver", callback_data="admin_config")
+    keyboard.adjust(1)
+
+    await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
+
+
+@admin_router.callback_query(F.data == "tier_new")
+async def create_tier_start(callback_query: CallbackQuery, state: FSMContext):
+    """Initiate the FSM flow to create a new subscription tier."""
+    await state.set_state(SubscriptionTierStates.waiting_tier_name)
+    await safe_edit_message(callback_query, "PASO 1/3: Introduce el nombre de la nueva tarifa (ej: 1 Mes Básico)")
+
+
+@admin_router.message(SubscriptionTierStates.waiting_tier_name)
+async def process_tier_name(message: Message, state: FSMContext):
+    """Capture the tier name and ask for the duration."""
+    await state.update_data(name=message.text)
+    await state.set_state(SubscriptionTierStates.waiting_tier_duration)
+    await message.answer("PASO 2/3: Introduce la duración en días (ej: 30)")
+
+
+@admin_router.message(SubscriptionTierStates.waiting_tier_duration)
+async def process_tier_duration(message: Message, state: FSMContext):
+    """Capture the tier duration and ask for the price."""
+    try:
+        duration_days = int(message.text)
+        await state.update_data(duration_days=duration_days)
+        await state.set_state(SubscriptionTierStates.waiting_tier_price)
+        await message.answer("PASO 3/3: Introduce el precio en USD (ej: 9.99)")
+    except ValueError:
+        await message.answer("Por favor, introduce un número válido para los días.")
+
+
+@admin_router.message(SubscriptionTierStates.waiting_tier_price)
+async def process_tier_price(message: Message, state: FSMContext, session: AsyncSession):
+    """Capture the tier price, create the tier, and end the FSM flow."""
+    try:
+        price_usd = float(message.text)
+        data = await state.get_data()
+        
+        await ConfigService.create_tier(
+            session=session,
+            name=data['name'],
+            duration_days=data['duration_days'],
+            price_usd=price_usd
+        )
+        
+        await message.answer("✅ Tarifa creada con éxito.")
+        await state.clear()
+        
+        # Fake a callback query to return to the tiers menu
+        fake_callback_query = CallbackQuery(
+            id="fake_callback", 
+            from_user=message.from_user, 
+            chat_instance="fake", 
+            message=message, 
+            data="config_tiers"
+        )
+        await manage_tiers_menu(fake_callback_query, session)
+
+    except ValueError:
+        await message.answer("Por favor, introduce un número válido para el precio (ej: 9.99).")
+    except ServiceError as e:
+        await message.answer(f"❌ Error al crear la tarifa: {e}")
+        await state.clear()
+
+
+@admin_router.callback_query(F.data.startswith("tier_edit_"))
+async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession):
+    """Display details of a selected tier and offer editing/deletion options."""
+    tier_id = int(callback_query.data.split("_")[2])
+    tier = await ConfigService.get_tier_by_id(session, tier_id)
+
+    if not tier:
+        await callback_query.answer("❌ Tarifa no encontrada.", show_alert=True)
+        return
+
+    text = (
+        f"Editando Tarifa: **{tier.name}**\n\n"
+        f"ID: `{tier.id}`\n"
+        f"Duración: `{tier.duration_days}` días\n"
+        f"Precio: `${tier.price_usd:.2f}`\n"
+        f"Activa: `{'Sí' if tier.is_active else 'No'}`"
+    )
+
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="📝 Editar Nombre", callback_data=f"tier_edit_name_{tier.id}")
+    keyboard.button(text="⏳ Editar Duración", callback_data=f"tier_edit_duration_{tier.id}")
+    keyboard.button(text="💲 Editar Precio", callback_data=f"tier_edit_price_{tier.id}")
+    keyboard.button(text="🗑️ Eliminar", callback_data=f"tier_delete_{tier.id}")
+    keyboard.button(text="⬅️ Volver", callback_data="config_tiers")
+    keyboard.adjust(1)
+    
+    await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
 
 
 # Token generation FSM flow

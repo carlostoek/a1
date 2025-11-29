@@ -22,3 +22,10 @@ class PostSendingStates(StatesGroup):
 
 class TokenGenerationStates(StatesGroup):
     waiting_duration = State()
+
+
+class SubscriptionTierStates(StatesGroup):
+    waiting_tier_name = State()
+    waiting_tier_duration = State() # Duración en DÍAS
+    waiting_tier_price = State()    # Precio Float
+    waiting_tier_selection = State() # Para edición/eliminación
