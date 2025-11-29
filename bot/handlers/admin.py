@@ -8,6 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
+from aiogram.exceptions import TelegramBadRequest
 from bot.middlewares.auth import AdminAuthMiddleware
 from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
@@ -22,6 +23,21 @@ admin_router.message.middleware(DBSessionMiddleware())
 admin_router.message.middleware(AdminAuthMiddleware())
 admin_router.callback_query.middleware(DBSessionMiddleware())
 admin_router.callback_query.middleware(AdminAuthMiddleware())
+
+
+async def safe_edit_message(callback_query: CallbackQuery, text: str, reply_markup=None):
+    """
+    Safely edit a message, handling the 'message is not modified' error.
+    """
+    try:
+        await callback_query.message.edit_text(text, reply_markup=reply_markup)
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            # If the message hasn't changed, just answer the callback
+            await callback_query.answer()
+        else:
+            # If it's a different error, raise it
+            raise e
 
 
 def get_main_menu_kb():
@@ -69,31 +85,31 @@ async def cmd_admin(message: Message):
 @admin_router.callback_query(F.data == "admin_main_menu")
 async def admin_main_menu(callback_query: CallbackQuery):
     """Edit message to show main menu."""
-    await callback_query.message.edit_text(
+    await safe_edit_message(
+        callback_query,
         "Menú Principal - Panel de Administración",
         reply_markup=get_main_menu_kb()
     )
-    await callback_query.answer()
 
 
 @admin_router.callback_query(F.data == "admin_vip")
 async def admin_vip(callback_query: CallbackQuery):
     """Edit message to show VIP menu."""
-    await callback_query.message.edit_text(
+    await safe_edit_message(
+        callback_query,
         "Menú VIP",
         reply_markup=get_vip_menu_kb()
     )
-    await callback_query.answer()
 
 
 @admin_router.callback_query(F.data == "admin_free")
 async def admin_free(callback_query: CallbackQuery):
     """Edit message to show Free menu."""
-    await callback_query.message.edit_text(
+    await safe_edit_message(
+        callback_query,
         "Menú Free",
         reply_markup=get_free_menu_kb()
     )
-    await callback_query.answer()
 
 
 @admin_router.callback_query(F.data == "admin_stats")
@@ -111,8 +127,7 @@ async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
             f"Solicitudes pendientes: {free_stats['pending_requests']}"
         )
 
-        await callback_query.message.edit_text(stats_message, reply_markup=get_main_menu_kb())
-        await callback_query.answer()
+        await safe_edit_message(callback_query, stats_message, reply_markup=get_main_menu_kb())
     except ServiceError:
         await callback_query.answer('Ocurrió un error al obtener las estadísticas.', show_alert=True)
 
@@ -122,8 +137,7 @@ async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
 async def vip_generate_token(callback_query: CallbackQuery, state: FSMContext):
     """Start token generation flow by asking for duration."""
     await state.set_state(TokenGenerationStates.waiting_duration)
-    await callback_query.message.edit_text("Ingrese la duración del token en horas:")
-    await callback_query.answer()
+    await safe_edit_message(callback_query, "Ingrese la duración del token en horas:")
 
 
 @admin_router.callback_query(F.data == "vip_stats")
@@ -138,8 +152,7 @@ async def vip_stats(callback_query: CallbackQuery, session: AsyncSession):
             f"Usuarios VIP activos: {stats['active_subscribers']}"
         )
 
-        await callback_query.message.edit_text(stats_message, reply_markup=get_vip_menu_kb())
-        await callback_query.answer()
+        await safe_edit_message(callback_query, stats_message, reply_markup=get_vip_menu_kb())
     except ServiceError:
         await callback_query.answer('Ocurrió un error al obtener las estadísticas VIP.', show_alert=True)
 
@@ -147,11 +160,11 @@ async def vip_stats(callback_query: CallbackQuery, session: AsyncSession):
 @admin_router.callback_query(F.data == "vip_config")
 async def vip_config(callback_query: CallbackQuery):
     """Show VIP configuration options (to be implemented)."""
-    await callback_query.message.edit_text(
+    await safe_edit_message(
+        callback_query,
         "Configuración VIP\n(En desarrollo)",
         reply_markup=get_vip_menu_kb()
     )
-    await callback_query.answer()
 
 
 # Callback handlers for Free menu options
@@ -168,8 +181,7 @@ async def free_stats(callback_query: CallbackQuery, session: AsyncSession):
             f"Solicitudes pendientes: {stats['pending_requests']}"
         )
 
-        await callback_query.message.edit_text(stats_message, reply_markup=get_free_menu_kb())
-        await callback_query.answer()
+        await safe_edit_message(callback_query, stats_message, reply_markup=get_free_menu_kb())
     except ServiceError:
         await callback_query.answer('Ocurrió un error al obtener las estadísticas Free.', show_alert=True)
 
@@ -177,22 +189,22 @@ async def free_stats(callback_query: CallbackQuery, session: AsyncSession):
 @admin_router.callback_query(F.data == "free_config")
 async def free_config(callback_query: CallbackQuery):
     """Show Free configuration options (to be implemented)."""
-    await callback_query.message.edit_text(
+    await safe_edit_message(
+        callback_query,
         "Configuración Free\n(En desarrollo)",
         reply_markup=get_free_menu_kb()
     )
-    await callback_query.answer()
 
 
 # Callback handlers for main menu options
 @admin_router.callback_query(F.data == "admin_config")
 async def admin_config(callback_query: CallbackQuery):
     """Show general configuration options (to be implemented)."""
-    await callback_query.message.edit_text(
+    await safe_edit_message(
+        callback_query,
         "Configuración General\n(En desarrollo)",
         reply_markup=get_main_menu_kb()
     )
-    await callback_query.answer()
 
 
 # Token generation FSM flow

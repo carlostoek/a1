@@ -2,7 +2,7 @@
 Service for managing VIP subscriptions and tokens.
 """
 import uuid
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -150,3 +150,95 @@ class SubscriptionService:
             return subscriber is not None
         except SQLAlchemyError as e:
             raise SubscriptionError(f"Error checking subscription status: {str(e)}")
+
+    @staticmethod
+    async def redeem_token(session: AsyncSession, user_id: int, token_str: str) -> Dict[str, Any]:
+        """
+        Redeem a VIP token.
+
+        Args:
+            session: Database session
+            user_id: ID of the user redeeming the token
+            token_str: The token string to redeem
+
+        Returns:
+            Dictionary with success status and token details or error message
+        """
+        try:
+            # Search for the token in the database
+            result = await session.execute(
+                select(InvitationToken).where(
+                    InvitationToken.token == token_str
+                )
+            )
+            token = result.scalars().first()
+
+            if not token:
+                return {
+                    "success": False,
+                    "error": "Token no encontrado"
+                }
+
+            # Check if token is already used
+            if token.used:
+                return {
+                    "success": False,
+                    "error": "Token ya ha sido usado"
+                }
+
+            # Check if token has expired (compare creation time + duration vs current time)
+            token_expiration_time = token.created_at + timedelta(hours=token.duration_hours)
+            current_time = datetime.now(timezone.utc)
+
+            if current_time > token_expiration_time:
+                return {
+                    "success": False,
+                    "error": "Token ha expirado"
+                }
+
+            # Token is valid, mark it as used
+            token.used = True
+            token.used_by = user_id
+            token.used_at = datetime.now(timezone.utc)
+
+            # Create/update VIP subscription for the user
+            expiry_date = datetime.now(timezone.utc) + timedelta(hours=token.duration_hours)
+
+            # Check if user already has a subscription
+            existing_subscriber_result = await session.execute(
+                select(VIPSubscriber).where(
+                    VIPSubscriber.user_id == user_id
+                )
+            )
+            existing_subscriber = existing_subscriber_result.scalars().first()
+
+            if existing_subscriber:
+                # Extend existing subscription
+                now = datetime.now(timezone.utc)
+                # If subscription is expired, start from now. Otherwise, extend from the current expiry_date.
+                start_date = max(now, existing_subscriber.expiry_date)
+                existing_subscriber.expiry_date = start_date + timedelta(hours=token.duration_hours)
+                existing_subscriber.status = "active"
+                existing_subscriber.token_id = token.id
+            else:
+                # Create new subscription
+                subscriber = VIPSubscriber(
+                    user_id=user_id,
+                    join_date=datetime.now(timezone.utc),
+                    expiry_date=expiry_date,
+                    status="active",
+                    token_id=token.id
+                )
+                session.add(subscriber)
+
+            # Commit changes to the database
+            await session.commit()
+
+            return {
+                "success": True,
+                "duration": token.duration_hours,
+                "expiry": expiry_date
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            raise SubscriptionError(f"Error validating token: {str(e)}")

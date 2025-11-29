@@ -1,14 +1,15 @@
 """
 Service for managing channel requests and statistics.
 """
-from typing import List
-from datetime import datetime, timezone
+from typing import List, Dict, Any
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
-from bot.database.models import FreeChannelRequest, VIPSubscriber
+from bot.database.models import FreeChannelRequest, VIPSubscriber, BotConfig
 from bot.services.exceptions import ServiceError
+from bot.services.config_service import ConfigService
 
 
 class ChannelManagementService:
@@ -99,3 +100,60 @@ class ChannelManagementService:
                 }
         except SQLAlchemyError as e:
             raise ServiceError(f"Error retrieving channel statistics: {str(e)}")
+
+    @staticmethod
+    async def request_free_access(session: AsyncSession, user_id: int) -> Dict[str, Any]:
+        """
+        Handle a user's request for free channel access.
+
+        Args:
+            session: Database session
+            user_id: ID of the user requesting access
+
+        Returns:
+            Dictionary with status and wait time information
+        """
+        try:
+            # Get wait time from config first (optimization to avoid duplicate queries)
+            config = await ConfigService.get_bot_config(session)
+            wait_time_minutes = config.wait_time_minutes
+
+            # Check if user already has a pending request
+            result = await session.execute(
+                select(FreeChannelRequest).where(
+                    FreeChannelRequest.user_id == user_id,
+                    FreeChannelRequest.processed.is_(False)
+                )
+            )
+            pending_request = result.scalars().first()
+
+            if pending_request:
+                # User already has a pending request, calculate remaining time
+
+                # Calculate how much time has passed since the request
+                current_time = datetime.now(timezone.utc)
+                time_since_request = (current_time - pending_request.request_date).total_seconds() / 60  # Convert to minutes
+                remaining_minutes = max(0, wait_time_minutes - time_since_request)
+
+                return {
+                    "status": "already_requested",
+                    "remaining_minutes": round(remaining_minutes),
+                    "wait_minutes": wait_time_minutes
+                }
+
+            # User doesn't have a pending request, create a new one
+            new_request = FreeChannelRequest(
+                user_id=user_id,
+                request_date=datetime.now(timezone.utc)
+            )
+            session.add(new_request)
+            await session.commit()
+            await session.refresh(new_request)
+
+            return {
+                "status": "queued",
+                "wait_minutes": wait_time_minutes
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            raise ServiceError(f"Error processing free access request: {str(e)}")
