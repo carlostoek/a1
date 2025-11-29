@@ -1,4 +1,4 @@
 """
-Handlers package for the Telegram Admin Bot.
-Contains all the message and callback handlers for the bot.
+Paquete de manejadores para el Bot de Telegram.
+Contiene todos los manejadores de mensajes y callbacks para el bot.
 """

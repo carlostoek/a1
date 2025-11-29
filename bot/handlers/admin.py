@@ -1,17 +1,18 @@
 """
-Admin handlers for the Telegram Admin Bot.
-Implements menu navigation and token generation functionality.
+Manejadores de administración para el Bot de Telegram.
+Implementa la navegación por menús y la generación de tokens.
 """
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.auth import AdminAuthMiddleware
 from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
-from bot.services.config_service import ConfigService
+from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.states import TokenGenerationStates
 
 
@@ -30,7 +31,7 @@ def get_main_menu_kb():
     keyboard.button(text="Gestión Free", callback_data="admin_free")
     keyboard.button(text="Config", callback_data="admin_config")
     keyboard.button(text="Stats", callback_data="admin_stats")
-    keyboard.button(text="Atrás", callback_data="admin_main_menu")  # Main menu button too
+    keyboard.button(text="Menú Principal", callback_data="admin_main_menu")  # Refresh main menu button
     keyboard.adjust(2)  # 2 buttons per row
     return keyboard.as_markup()
 
@@ -96,23 +97,24 @@ async def admin_free(callback_query: CallbackQuery):
 
 
 @admin_router.callback_query(F.data == "admin_stats")
-async def admin_stats(callback_query: CallbackQuery, session):
+async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
     """Show stats summary using ChannelManagementService."""
     try:
         # Get channel stats
         stats = await ChannelManagementService.get_channel_stats(session, "vip")
         free_stats = await ChannelManagementService.get_channel_stats(session, "general")
-        
+
         stats_message = (
             f"📊 Estadísticas del Bot:\n\n"
             f"Usuarios VIP activos: {stats['active_subscribers']}\n"
             f"Solicitudes Free: {free_stats['total_requests']}\n"
             f"Solicitudes pendientes: {free_stats['pending_requests']}"
         )
-        
-        await callback_query.answer(stats_message, show_alert=True)
-    except Exception as e:
-        await callback_query.answer(f"Error obteniendo estadísticas: {str(e)}", show_alert=True)
+
+        await callback_query.message.edit_text(stats_message, reply_markup=get_main_menu_kb())
+        await callback_query.answer()
+    except ServiceError:
+        await callback_query.answer('Ocurrió un error al obtener las estadísticas.', show_alert=True)
 
 
 # Callback handlers for VIP menu options
@@ -125,7 +127,7 @@ async def vip_generate_token(callback_query: CallbackQuery, state: FSMContext):
 
 
 @admin_router.callback_query(F.data == "vip_stats")
-async def vip_stats(callback_query: CallbackQuery, session):
+async def vip_stats(callback_query: CallbackQuery, session: AsyncSession):
     """Show VIP stats using ChannelManagementService."""
     try:
         # Get VIP channel stats
@@ -138,8 +140,8 @@ async def vip_stats(callback_query: CallbackQuery, session):
 
         await callback_query.message.edit_text(stats_message, reply_markup=get_vip_menu_kb())
         await callback_query.answer()
-    except Exception as e:
-        await callback_query.answer(f"Error obteniendo estadísticas VIP: {str(e)}", show_alert=True)
+    except ServiceError:
+        await callback_query.answer('Ocurrió un error al obtener las estadísticas VIP.', show_alert=True)
 
 
 @admin_router.callback_query(F.data == "vip_config")
@@ -154,7 +156,7 @@ async def vip_config(callback_query: CallbackQuery):
 
 # Callback handlers for Free menu options
 @admin_router.callback_query(F.data == "free_stats")
-async def free_stats(callback_query: CallbackQuery, session):
+async def free_stats(callback_query: CallbackQuery, session: AsyncSession):
     """Show Free channel stats using ChannelManagementService."""
     try:
         # Get Free channel stats
@@ -168,8 +170,8 @@ async def free_stats(callback_query: CallbackQuery, session):
 
         await callback_query.message.edit_text(stats_message, reply_markup=get_free_menu_kb())
         await callback_query.answer()
-    except Exception as e:
-        await callback_query.answer(f"Error obteniendo estadísticas Free: {str(e)}", show_alert=True)
+    except ServiceError:
+        await callback_query.answer('Ocurrió un error al obtener las estadísticas Free.', show_alert=True)
 
 
 @admin_router.callback_query(F.data == "free_config")
@@ -195,7 +197,7 @@ async def admin_config(callback_query: CallbackQuery):
 
 # Token generation FSM flow
 @admin_router.message(TokenGenerationStates.waiting_duration)
-async def process_token_duration(message: Message, state: FSMContext, session):
+async def process_token_duration(message: Message, state: FSMContext, session: AsyncSession):
     """Process token duration input and generate token."""
     try:
         # Validate that input is a number
@@ -215,6 +217,6 @@ async def process_token_duration(message: Message, state: FSMContext, session):
     except ValueError:
         # If input is not a number, ask again
         await message.answer("Por favor, ingrese un número válido para la duración en horas:")
-    except Exception as e:
-        await message.answer(f"Error generando token: {str(e)}")
+    except SubscriptionError:
+        await message.answer('Error generando el token.')
         await state.clear()
