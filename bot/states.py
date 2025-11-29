@@ -20,10 +20,6 @@ class PostSendingStates(StatesGroup):
     waiting_confirmation = State()
 
 
-class TokenGenerationStates(StatesGroup):
-    waiting_duration = State()
-
-
 class SubscriptionTierStates(StatesGroup):
     waiting_tier_name = State()
     waiting_tier_duration = State() # Duración en DÍAS

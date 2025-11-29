@@ -38,7 +38,7 @@ class InvitationToken(Base):
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
     generated_by: Mapped[int] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    duration_hours: Mapped[int] = mapped_column(Integer)
+    tier_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscription_tiers.id"))
     used: Mapped[bool] = mapped_column(Boolean, default=False)
     used_by: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

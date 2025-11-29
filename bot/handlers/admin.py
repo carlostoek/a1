@@ -15,7 +15,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
-from bot.states import TokenGenerationStates, SubscriptionTierStates
+from bot.states import SubscriptionTierStates
 
 
 # Create router and apply middlewares
@@ -53,14 +53,26 @@ def get_main_menu_kb():
     return keyboard.as_markup()
 
 
-def get_vip_menu_kb():
-    """Generate VIP menu keyboard with buttons: [Generar Token, Ver Stats, Configurar, Volver]"""
+async def get_vip_menu_kb(session: AsyncSession):
+    """Generate VIP menu keyboard with buttons for each active tier."""
+    tiers = await ConfigService.get_all_tiers(session)
     keyboard = InlineKeyboardBuilder()
-    keyboard.button(text="Generar Token", callback_data="vip_generate_token")
+
+    if tiers:
+        for tier in tiers:
+            keyboard.button(
+                text=f"🎟️ Generar Token ({tier.name})",
+                callback_data=f"token_generate_{tier.id}"
+            )
+    else:
+        # If no tiers, "Generar Token" is disabled.
+        # A message will be shown in the handler.
+        pass
+
     keyboard.button(text="Ver Stats", callback_data="vip_stats")
     keyboard.button(text="Configurar", callback_data="vip_config")
     keyboard.button(text="Volver", callback_data="admin_main_menu")
-    keyboard.adjust(2)  # 2 buttons per row
+    keyboard.adjust(1)
     return keyboard.as_markup()
 
 
@@ -103,12 +115,17 @@ async def admin_main_menu(callback_query: CallbackQuery):
 
 
 @admin_router.callback_query(F.data == "admin_vip")
-async def admin_vip(callback_query: CallbackQuery):
+async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     """Edit message to show VIP menu."""
+    tiers = await ConfigService.get_all_tiers(session)
+    text = "Menú VIP"
+    if not tiers:
+        text += "\n\n❌ No hay tarifas de suscripción activas. Por favor, configure una tarifa primero."
+        
     await safe_edit_message(
         callback_query,
-        "Menú VIP",
-        reply_markup=get_vip_menu_kb()
+        text,
+        reply_markup=await get_vip_menu_kb(session)
     )
 
 
@@ -143,11 +160,32 @@ async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
 
 
 # Callback handlers for VIP menu options
-@admin_router.callback_query(F.data == "vip_generate_token")
-async def vip_generate_token(callback_query: CallbackQuery, state: FSMContext):
-    """Start token generation flow by asking for duration."""
-    await state.set_state(TokenGenerationStates.waiting_duration)
-    await safe_edit_message(callback_query, "Ingrese la duración del token en horas:")
+@admin_router.callback_query(F.data.startswith("token_generate_"))
+async def generate_token_from_tier(callback_query: CallbackQuery, session: AsyncSession):
+    """Generate a VIP token from a selected subscription tier."""
+    try:
+        tier_id = int(callback_query.data.split("_")[2])
+        admin_id = callback_query.from_user.id
+
+        # Generate the token link
+        token_link = await SubscriptionService.generate_vip_token(
+            session, admin_id, tier_id, callback_query.bot
+        )
+        
+        tier = await ConfigService.get_tier_by_id(session, tier_id)
+
+        response_text = (
+            f"✅ Token VIP generado con éxito para la tarifa **{tier.name}**:\n\n"
+            f"🔗 Link de invitación (copiar y enviar):\n"
+            f"<code>{token_link}</code>"
+        )
+        await callback_query.message.answer(response_text)
+        await callback_query.answer("Token generado.")
+
+    except (SubscriptionError, ServiceError) as e:
+        await callback_query.answer(f"Error: {e}", show_alert=True)
+    except (IndexError, ValueError):
+        await callback_query.answer("Error procesando la solicitud.", show_alert=True)
 
 
 @admin_router.callback_query(F.data == "vip_stats")
@@ -162,18 +200,18 @@ async def vip_stats(callback_query: CallbackQuery, session: AsyncSession):
             f"Usuarios VIP activos: {stats['active_subscribers']}"
         )
 
-        await safe_edit_message(callback_query, stats_message, reply_markup=get_vip_menu_kb())
+        await safe_edit_message(callback_query, stats_message, reply_markup=await get_vip_menu_kb(session))
     except ServiceError:
         await callback_query.answer('Ocurrió un error al obtener las estadísticas VIP.', show_alert=True)
 
 
 @admin_router.callback_query(F.data == "vip_config")
-async def vip_config(callback_query: CallbackQuery):
+async def vip_config(callback_query: CallbackQuery, session: AsyncSession):
     """Show VIP configuration options (to be implemented)."""
     await safe_edit_message(
         callback_query,
         "Configuración VIP\n(En desarrollo)",
-        reply_markup=get_vip_menu_kb()
+        reply_markup=await get_vip_menu_kb(session)
     )
 
 
@@ -328,30 +366,3 @@ async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession)
     keyboard.adjust(1)
     
     await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
-
-
-# Token generation FSM flow
-@admin_router.message(TokenGenerationStates.waiting_duration)
-async def process_token_duration(message: Message, state: FSMContext, session: AsyncSession):
-    """Process token duration input and generate token."""
-    try:
-        # Validate that input is a number
-        duration_hours = int(message.text)
-
-        # Generate the VIP token using the subscription service
-        admin_id = message.from_user.id
-        token = await SubscriptionService.generate_vip_token(session, admin_id, duration_hours)
-
-        # Send the generated token in a copiable format
-        response_text = f"✅ Token VIP generado con éxito:\n\n<code>{token.token}</code>\n\nDuración: {duration_hours} horas"
-        await message.answer(response_text)
-
-        # Clear the state
-        await state.clear()
-
-    except ValueError:
-        # If input is not a number, ask again
-        await message.answer("Por favor, ingrese un número válido para la duración en horas:")
-    except SubscriptionError:
-        await message.answer('Error generando el token.')
-        await state.clear()
