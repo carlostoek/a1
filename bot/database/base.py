@@ -1,12 +1,16 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import sessionmaker
+from bot.config import Settings
 
-Base = declarative_base()
+settings = Settings()
+
+class Base(DeclarativeBase):
+    pass
 
 # Create async engine
 engine = create_async_engine(
-    "sqlite+aiosqlite:///bot.db",
+    settings.DB_URL,
     echo=False  # Set to True for SQL query logging
 )
 
