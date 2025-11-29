@@ -12,6 +12,7 @@ from aiogram.enums import ParseMode
 from bot.config import Settings
 from bot.database.base import engine
 from bot.handlers.admin import admin_router
+from bot.handlers.user import user_router
 from init_db import init_db
 
 
@@ -37,8 +38,9 @@ async def main():
     # Initialize dispatcher
     dp = Dispatcher()
     
-    # Include admin router
+    # Include routers
     dp.include_router(admin_router)
+    dp.include_router(user_router)
     
     # Startup hook
     @dp.startup()
