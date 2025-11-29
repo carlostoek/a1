@@ -1,4 +1,38 @@
+# Ignoring Python bytecode and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Ignoring IDE-specific files
+.idea/
+.vscode/
+*.swp
+*.bak
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Project-specific files
+bot.db
 .env
-.env~
-*.env
-*.env~
+validate_subscription_tiers.py
+
+# Logs and other temporary files
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Jupyter Notebook specific
+.ipynb_checkpoints/
+
+# Miscellaneous
+*~
+.#*
