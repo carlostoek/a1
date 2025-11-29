@@ -1,6 +1,6 @@
 """
 User handlers for the Telegram Admin Bot.
-Handles user interactions like token redemption.
+Handles user interactions like token redemption and free channel access.
 """
 import re
 from aiogram import Router, F
@@ -8,6 +8,7 @@ from aiogram.types import Message
 from aiogram.filters import Command
 from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
+from bot.services.channel_service import ChannelManagementService
 
 
 # Create router for user handlers
@@ -23,18 +24,47 @@ def looks_like_token(text: str) -> bool:
     # Check minimum length
     if len(text) < 6:
         return False
-    
+
     # Check if it contains alphanumeric characters and hyphens (like UUID)
     uuid_pattern = re.compile(r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$')
     if uuid_pattern.match(text):
         return True
-    
+
     # Check if it looks like an alphanumeric token (at least 6 characters)
     alphanumeric_pattern = re.compile(r'^[a-zA-Z0-9_-]+$')
     if alphanumeric_pattern.match(text) and len(text) >= 6:
         return True
-    
+
     return False
+
+
+@user_router.message(Command("free"))
+async def cmd_free_access(message: Message, session):
+    """
+    Handle user request for free channel access.
+    Process: Call ChannelService.request_free_access and respond appropriately.
+    """
+    user_id = message.from_user.id
+
+    # Request free channel access
+    result = await ChannelManagementService.request_free_access(session, user_id)
+
+    if result["status"] == "already_requested":
+        wait_minutes = result["wait_minutes"]
+        remaining_minutes = result["remaining_minutes"]
+        response_text = (
+            f"⏳ Ya tienes una solicitud pendiente.\n"
+            f"Tiempo restante: {max(0, remaining_minutes)} minutos de {wait_minutes} minutos de espera."
+        )
+    elif result["status"] == "queued":
+        wait_minutes = result["wait_minutes"]
+        response_text = (
+            f"⏳ Solicitud recibida.\n"
+            f"Para evitar spam, debes esperar <b>{wait_minutes} minutos</b>.\n"
+            f"El bot te enviará el enlace automáticamente cuando pase el tiempo. ¡No bloquees al bot!"
+        )
+
+    await message.reply(response_text)
 
 
 @user_router.message(~F.text.startswith('/'))  # Only process non-command messages
@@ -45,14 +75,14 @@ async def process_token_message(message: Message, session):
     """
     if not message.text:
         return  # Ignore if there's no text
-    
+
     text = message.text.strip()
-    
+
     # Check if the message looks like a token
     if looks_like_token(text):
         # Attempt to redeem the token
         result = await SubscriptionService.redeem_token(session, message.from_user.id, text)
-        
+
         if result["success"]:
             # Success: token was redeemed
             duration = result["duration"]

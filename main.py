@@ -13,6 +13,7 @@ from bot.config import Settings
 from bot.database.base import engine
 from bot.handlers.admin import admin_router
 from bot.handlers.user import user_router
+from bot.tasks import BackgroundTaskManager
 from init_db import init_db
 
 
@@ -28,20 +29,23 @@ async def main():
     """Main function to run the Telegram bot."""
     # Initialize settings
     settings = Settings()
-    
+
     # Initialize bot with HTML parse mode
     bot = Bot(
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
-    
+
+    # Initialize background task manager
+    background_manager = BackgroundTaskManager()
+
     # Initialize dispatcher
     dp = Dispatcher()
-    
+
     # Include routers
     dp.include_router(admin_router)
     dp.include_router(user_router)
-    
+
     # Startup hook
     @dp.startup()
     async def startup_hook():
@@ -49,17 +53,22 @@ async def main():
         # Ensure database is initialized
         await init_db()
         logger.info("Base de datos inicializada")
-    
+
+        # Start background tasks
+        await background_manager.start(bot)
+
     # Shutdown hook
     @dp.shutdown()
     async def shutdown_hook():
         logger.info("Cerrando bot...")
+        # Stop background tasks
+        await background_manager.stop()
         # Close database connection
         await engine.dispose()
         # Close bot session
         await bot.session.close()
         logger.info("Conexiones cerradas")
-    
+
     try:
         # Start polling
         logger.info("Iniciando polling...")
