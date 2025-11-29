@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
-from bot.database.models import FreeChannelRequest, VIPSubscriber, BotConfig
+from sqlalchemy.exc import SQLAlchemyError
+from bot.database.models import FreeChannelRequest, VIPSubscriber
 from bot.services.exceptions import ServiceError
 
 
@@ -26,13 +27,13 @@ class ChannelManagementService:
                 user_id=user_id,
                 request_date=datetime.now(timezone.utc)
             )
-            
+
             session.add(request)
             await session.commit()
             await session.refresh(request)
-            
+
             return request
-        except Exception as e:
+        except SQLAlchemyError as e:
             await session.rollback()
             raise ServiceError(f"Error registering free channel request: {str(e)}")
     
@@ -45,24 +46,24 @@ class ChannelManagementService:
             # Query for requests that haven't been processed
             result = await session.execute(
                 select(FreeChannelRequest).where(
-                    FreeChannelRequest.processed == False  # noqa: E712
+                    FreeChannelRequest.processed.is_(False)
                 )
             )
             requests = result.scalars().all()
-            
+
             return requests
-        except Exception as e:
+        except SQLAlchemyError as e:
             raise ServiceError(f"Error retrieving pending requests: {str(e)}")
     
     @staticmethod
     async def get_channel_stats(session: AsyncSession, channel_type: str) -> dict:
         """
         Get statistics for a specific channel type.
-        
+
         Args:
             session: Database session
             channel_type: 'vip' or other types
-            
+
         Returns:
             Dictionary with statistics
         """
@@ -76,7 +77,7 @@ class ChannelManagementService:
                     )
                 )
                 active_subscribers = result.scalar()
-                
+
                 return {
                     "active_subscribers": active_subscribers or 0
                 }
@@ -84,17 +85,17 @@ class ChannelManagementService:
                 # For other types of channels, return general stats if needed
                 result = await session.execute(select(func.count(FreeChannelRequest.id)))
                 total_requests = result.scalar()
-                
+
                 result = await session.execute(
                     select(func.count(FreeChannelRequest.id)).where(
-                        FreeChannelRequest.processed == False  # noqa: E712
+                        FreeChannelRequest.processed.is_(False)
                     )
                 )
                 pending_requests = result.scalar()
-                
+
                 return {
                     "total_requests": total_requests or 0,
                     "pending_requests": pending_requests or 0
                 }
-        except Exception as e:
+        except SQLAlchemyError as e:
             raise ServiceError(f"Error retrieving channel statistics: {str(e)}")

@@ -2,7 +2,7 @@
 Test script for the business logic services.
 """
 import asyncio
-from bot.database.base import get_session, engine
+from bot.database.base import get_session
 from bot.services.config_service import ConfigService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
