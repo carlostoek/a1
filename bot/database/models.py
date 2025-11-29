@@ -17,15 +17,17 @@ class BotConfig(Base):
     subscription_fees: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
-class VIPSubscriber(Base):
-    __tablename__ = "vip_subscribers"
+class UserSubscription(Base):
+    __tablename__ = "user_subscriptions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    role: Mapped[str] = mapped_column(String(20), default="free", index=True)  # 'free', 'vip', 'admin'
     join_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    expiry_date: Mapped[datetime] = mapped_column(DateTime)
-    status: Mapped[str] = mapped_column(String(20))  # active/expired
-    token_id: Mapped[int] = mapped_column(Integer, ForeignKey("invitation_tokens.id"))
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active/expired
+    token_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("invitation_tokens.id"), nullable=True)
+    reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Index on [status, expiry_date]
     __table_args__ = (Index("idx_status_expiry", "status", "expiry_date"),)

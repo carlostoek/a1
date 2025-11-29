@@ -10,7 +10,7 @@ from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from bot.database.models import (
     InvitationToken,
-    VIPSubscriber,
+    UserSubscription,
     SubscriptionTier
 )
 from bot.services.config_service import ConfigService
@@ -88,7 +88,7 @@ class SubscriptionService:
         session: AsyncSession,
         user_id: int,
         token_id: int
-    ) -> VIPSubscriber:
+    ) -> UserSubscription:
         """
         Register a new VIP subscription using a valid token.
         Marks the token as used and creates a subscription record.
@@ -116,11 +116,12 @@ class SubscriptionService:
             expiry_date = now + timedelta(days=tier.duration_days)
 
             # Create the VIP subscriber record
-            subscriber = VIPSubscriber(
+            subscriber = UserSubscription(
                 user_id=user_id,
                 join_date=now,
                 expiry_date=expiry_date,
                 status="active",
+                role="vip",
                 token_id=token.id
             )
 
@@ -155,10 +156,10 @@ class SubscriptionService:
 
             # Query for active subscription that hasn't expired
             result = await session.execute(
-                select(VIPSubscriber).where(
-                    VIPSubscriber.user_id == user_id,
-                    VIPSubscriber.status == "active",
-                    VIPSubscriber.expiry_date > current_time
+                select(UserSubscription).where(
+                    UserSubscription.user_id == user_id,
+                    UserSubscription.status == "active",
+                    UserSubscription.expiry_date > current_time
                 )
             )
             subscriber = result.scalars().first()
@@ -192,7 +193,7 @@ class SubscriptionService:
             token.used_at = datetime.now(timezone.utc)
 
             # Check for existing subscription to extend it
-            result = await session.execute(select(VIPSubscriber).where(VIPSubscriber.user_id == user_id))
+            result = await session.execute(select(UserSubscription).where(UserSubscription.user_id == user_id))
             subscriber = result.scalars().first()
             
             now = datetime.now(timezone.utc)
@@ -202,14 +203,16 @@ class SubscriptionService:
                 start_date = max(now, subscriber.expiry_date)
                 subscriber.expiry_date = start_date + timedelta(days=duration_days)
                 subscriber.status = "active"
+                subscriber.role = "vip"
                 subscriber.token_id = token.id
             else:
                 # Create a new subscription
-                subscriber = VIPSubscriber(
+                subscriber = UserSubscription(
                     user_id=user_id,
                     join_date=now,
                     expiry_date=now + timedelta(days=duration_days),
                     status="active",
+                    role="vip",
                     token_id=token.id,
                 )
                 session.add(subscriber)
@@ -218,8 +221,7 @@ class SubscriptionService:
 
             return {
                 "success": True,
-                "duration_days": duration_days,
-                "expiry_date": subscriber.expiry_date
+                "tier": tier
             }
         except (TokenInvalidError, SubscriptionError) as e:
             await session.rollback()

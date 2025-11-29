@@ -5,7 +5,7 @@ Implementa la navegación por menús y la generación de tokens.
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 from aiogram.exceptions import TelegramBadRequest
@@ -16,15 +16,11 @@ from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.states import SubscriptionTierStates
-
+from bot.config import Settings
+from datetime import datetime, timedelta, timezone
 
 # Create router and apply middlewares
 admin_router = Router()
-admin_router.message.middleware(DBSessionMiddleware())
-admin_router.message.middleware(AdminAuthMiddleware())
-admin_router.callback_query.middleware(DBSessionMiddleware())
-admin_router.callback_query.middleware(AdminAuthMiddleware())
-
 
 async def safe_edit_message(callback_query: CallbackQuery, text: str, reply_markup=None):
     """
@@ -39,7 +35,6 @@ async def safe_edit_message(callback_query: CallbackQuery, text: str, reply_mark
         else:
             # If it's a different error, raise it
             raise e
-
 
 def get_main_menu_kb():
     """Generate main menu keyboard with buttons: [Gestión VIP, Gestión Free, Config, Stats]"""
@@ -97,11 +92,67 @@ def get_config_menu_kb():
 
 # Command handlers
 @admin_router.message(Command("admin", "start"))
-async def cmd_admin(message: Message):
-    """Respond with welcome message and main menu keyboard."""
-    welcome_text = "Bienvenido al Panel de Administración del Bot."
-    await message.answer(welcome_text, reply_markup=get_main_menu_kb())
+async def cmd_admin(message: Message, command: CommandObject, session: AsyncSession):
+    """
+    Handle the /start and /admin commands.
+    - If /start has a token, redeem it.
+    - If /start has no token, show a welcome message.
+    - If /admin is used by an admin, show the admin menu.
+    """
+    user_id = message.from_user.id
+    token_str = command.args
 
+    # User role check
+    settings = Settings()
+    is_admin = user_id in settings.admin_ids_list
+
+    if token_str:
+        # Token redemption flow
+        try:
+            result = await SubscriptionService.redeem_token(session, user_id, token_str)
+
+            if result["success"]:
+                tier = result["tier"]
+                bot_config = await ConfigService.get_bot_config(session)
+                vip_channel_id = bot_config.vip_channel_id
+
+                if not vip_channel_id:
+                    await message.reply("✅ Token canjeado, pero el canal VIP no está configurado. Contacta a un administrador.")
+                    return
+
+                expire_date = datetime.now(timezone.utc) + timedelta(days=tier.duration_days)
+                invite_link = await message.bot.create_chat_invite_link(
+                    chat_id=vip_channel_id,
+                    member_limit=1,
+                    expire_date=expire_date
+                )
+
+                response_text = (
+                    f"🎉 ¡Felicidades! Has canjeado un token para la tarifa **{tier.name}**.\n\n"
+                    f"Aquí tienes tu enlace de invitación único para el canal VIP. Es válido solo para ti y expirará en {tier.duration_days} días.\n\n"
+                    f"➡️ **[UNIRSE AL CANAL VIP]({invite_link.invite_link})**"
+                )
+                await message.reply(response_text, parse_mode="Markdown")
+            else:
+                await message.reply(f"❌ Error al canjear el token: {result['error']}")
+
+        except SubscriptionError as e:
+            await message.reply(f"❌ Ocurrió un error inesperado: {e}")
+    
+    elif is_admin:
+        # Admin menu flow
+        welcome_text = "Bienvenido al Panel de Administración del Bot."
+        await message.answer(welcome_text, reply_markup=get_main_menu_kb())
+
+    else:
+        # Generic user welcome
+        await message.reply(
+            "👋 ¡Bienvenido! Si tienes un token de invitación, úsalo con el comando `/start TOKEN`.\n"
+            "Si buscas acceso gratuito, usa el comando `/free`."
+        )
+
+# Apply middlewares to the handler
+admin_router.message.middleware(DBSessionMiddleware())
 
 # Navigation callback handlers
 @admin_router.callback_query(F.data == "admin_main_menu")
@@ -112,7 +163,8 @@ async def admin_main_menu(callback_query: CallbackQuery):
         "Menú Principal - Panel de Administración",
         reply_markup=get_main_menu_kb()
     )
-
+admin_main_menu.middleware(DBSessionMiddleware())
+admin_main_menu.middleware(AdminAuthMiddleware())
 
 @admin_router.callback_query(F.data == "admin_vip")
 async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
@@ -127,7 +179,8 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         text,
         reply_markup=await get_vip_menu_kb(session)
     )
-
+admin_vip.middleware(DBSessionMiddleware())
+admin_vip.middleware(AdminAuthMiddleware())
 
 @admin_router.callback_query(F.data == "admin_free")
 async def admin_free(callback_query: CallbackQuery):
@@ -137,7 +190,8 @@ async def admin_free(callback_query: CallbackQuery):
         "Menú Free",
         reply_markup=get_free_menu_kb()
     )
-
+admin_free.middleware(DBSessionMiddleware())
+admin_free.middleware(AdminAuthMiddleware())
 
 @admin_router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
@@ -157,6 +211,8 @@ async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
         await safe_edit_message(callback_query, stats_message, reply_markup=get_main_menu_kb())
     except ServiceError:
         await callback_query.answer('Ocurrió un error al obtener las estadísticas.', show_alert=True)
+admin_stats.middleware(DBSessionMiddleware())
+admin_stats.middleware(AdminAuthMiddleware())
 
 
 # Callback handlers for VIP menu options
@@ -186,6 +242,8 @@ async def generate_token_from_tier(callback_query: CallbackQuery, session: Async
         await callback_query.answer(f"Error: {e}", show_alert=True)
     except (IndexError, ValueError):
         await callback_query.answer("Error procesando la solicitud.", show_alert=True)
+generate_token_from_tier.middleware(DBSessionMiddleware())
+generate_token_from_tier.middleware(AdminAuthMiddleware())
 
 
 @admin_router.callback_query(F.data == "vip_stats")
@@ -203,6 +261,8 @@ async def vip_stats(callback_query: CallbackQuery, session: AsyncSession):
         await safe_edit_message(callback_query, stats_message, reply_markup=await get_vip_menu_kb(session))
     except ServiceError:
         await callback_query.answer('Ocurrió un error al obtener las estadísticas VIP.', show_alert=True)
+vip_stats.middleware(DBSessionMiddleware())
+vip_stats.middleware(AdminAuthMiddleware())
 
 
 @admin_router.callback_query(F.data == "vip_config")
@@ -213,6 +273,8 @@ async def vip_config(callback_query: CallbackQuery, session: AsyncSession):
         "Configuración VIP\n(En desarrollo)",
         reply_markup=await get_vip_menu_kb(session)
     )
+vip_config.middleware(DBSessionMiddleware())
+vip_config.middleware(AdminAuthMiddleware())
 
 
 # Callback handlers for Free menu options
@@ -232,6 +294,8 @@ async def free_stats(callback_query: CallbackQuery, session: AsyncSession):
         await safe_edit_message(callback_query, stats_message, reply_markup=get_free_menu_kb())
     except ServiceError:
         await callback_query.answer('Ocurrió un error al obtener las estadísticas Free.', show_alert=True)
+free_stats.middleware(DBSessionMiddleware())
+free_stats.middleware(AdminAuthMiddleware())
 
 
 @admin_router.callback_query(F.data == "free_config")
@@ -242,6 +306,8 @@ async def free_config(callback_query: CallbackQuery):
         "Configuración Free\n(En desarrollo)",
         reply_markup=get_free_menu_kb()
     )
+free_config.middleware(DBSessionMiddleware())
+free_config.middleware(AdminAuthMiddleware())
 
 
 # Callback handlers for main menu options
@@ -253,6 +319,8 @@ async def admin_config(callback_query: CallbackQuery):
         "Configuración General",
         reply_markup=get_config_menu_kb()
     )
+admin_config.middleware(DBSessionMiddleware())
+admin_config.middleware(AdminAuthMiddleware())
 
 
 @admin_router.callback_query(F.data == "config_tiers")
@@ -276,6 +344,8 @@ async def manage_tiers_menu(callback_query: CallbackQuery, session: AsyncSession
     keyboard.adjust(1)
 
     await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
+manage_tiers_menu.middleware(DBSessionMiddleware())
+manage_tiers_menu.middleware(AdminAuthMiddleware())
 
 
 @admin_router.callback_query(F.data == "tier_new")
@@ -283,6 +353,8 @@ async def create_tier_start(callback_query: CallbackQuery, state: FSMContext):
     """Initiate the FSM flow to create a new subscription tier."""
     await state.set_state(SubscriptionTierStates.waiting_tier_name)
     await safe_edit_message(callback_query, "PASO 1/3: Introduce el nombre de la nueva tarifa (ej: 1 Mes Básico)")
+create_tier_start.middleware(DBSessionMiddleware())
+create_tier_start.middleware(AdminAuthMiddleware())
 
 
 @admin_router.message(SubscriptionTierStates.waiting_tier_name)
@@ -291,6 +363,8 @@ async def process_tier_name(message: Message, state: FSMContext):
     await state.update_data(name=message.text)
     await state.set_state(SubscriptionTierStates.waiting_tier_duration)
     await message.answer("PASO 2/3: Introduce la duración en días (ej: 30)")
+process_tier_name.middleware(DBSessionMiddleware())
+process_tier_name.middleware(AdminAuthMiddleware())
 
 
 @admin_router.message(SubscriptionTierStates.waiting_tier_duration)
@@ -303,6 +377,8 @@ async def process_tier_duration(message: Message, state: FSMContext):
         await message.answer("PASO 3/3: Introduce el precio en USD (ej: 9.99)")
     except ValueError:
         await message.answer("Por favor, introduce un número válido para los días.")
+process_tier_duration.middleware(DBSessionMiddleware())
+process_tier_duration.middleware(AdminAuthMiddleware())
 
 
 @admin_router.message(SubscriptionTierStates.waiting_tier_price)
@@ -337,6 +413,8 @@ async def process_tier_price(message: Message, state: FSMContext, session: Async
     except ServiceError as e:
         await message.answer(f"❌ Error al crear la tarifa: {e}")
         await state.clear()
+process_tier_price.middleware(DBSessionMiddleware())
+process_tier_price.middleware(AdminAuthMiddleware())
 
 
 @admin_router.callback_query(F.data.startswith("tier_edit_"))
@@ -366,3 +444,5 @@ async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession)
     keyboard.adjust(1)
     
     await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
+edit_tier_select.middleware(DBSessionMiddleware())
+edit_tier_select.middleware(AdminAuthMiddleware())
