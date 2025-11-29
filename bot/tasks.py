@@ -83,13 +83,9 @@ class BackgroundTaskManager:
             try:
                 # Get all pending requests that have waited enough time
                 async for session in get_session():
-                    # Get wait time from config
-                    config_result = await session.execute(select(BotConfig))
-                    config = config_result.scalars().first()
-                    
-                    if not config:
-                        # Create default config if none exists
-                        config = BotConfig(wait_time_minutes=30)  # Default to 30 minutes
+                    # Get wait time from config using the service
+                    from bot.services.config_service import ConfigService
+                    config = await ConfigService.get_bot_config(session)
                     wait_time_minutes = config.wait_time_minutes
                     
                     # Find requests that have waited enough time

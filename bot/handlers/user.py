@@ -10,6 +10,10 @@ from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 
+# Regular expression patterns compiled once at module level for efficiency
+_UUID_PATTERN = re.compile(r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$')
+_ALPHANUMERIC_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+
 
 # Create router for user handlers
 user_router = Router()
@@ -26,13 +30,11 @@ def looks_like_token(text: str) -> bool:
         return False
 
     # Check if it contains alphanumeric characters and hyphens (like UUID)
-    uuid_pattern = re.compile(r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$')
-    if uuid_pattern.match(text):
+    if _UUID_PATTERN.match(text):
         return True
 
     # Check if it looks like an alphanumeric token (at least 6 characters)
-    alphanumeric_pattern = re.compile(r'^[a-zA-Z0-9_-]+$')
-    if alphanumeric_pattern.match(text) and len(text) >= 6:
+    if _ALPHANUMERIC_PATTERN.match(text) and len(text) >= 6:
         return True
 
     return False

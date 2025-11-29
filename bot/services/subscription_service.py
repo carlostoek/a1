@@ -213,13 +213,11 @@ class SubscriptionService:
             existing_subscriber = existing_subscriber_result.scalars().first()
 
             if existing_subscriber:
-                # Update existing subscription (extend the expiry date)
-                if existing_subscriber.expiry_date > datetime.now(timezone.utc):
-                    # If current subscription is still valid, extend from its expiry date
-                    existing_subscriber.expiry_date = expiry_date
-                else:
-                    # If current subscription has expired, set to new expiry date
-                    existing_subscriber.expiry_date = expiry_date
+                # Extend existing subscription
+                now = datetime.now(timezone.utc)
+                # If subscription is expired, start from now. Otherwise, extend from the current expiry_date.
+                start_date = max(now, existing_subscriber.expiry_date)
+                existing_subscriber.expiry_date = start_date + timedelta(hours=token.duration_hours)
                 existing_subscriber.status = "active"
                 existing_subscriber.token_id = token.id
             else:

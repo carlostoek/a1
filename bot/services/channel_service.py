@@ -114,19 +114,21 @@ class ChannelManagementService:
             Dictionary with status and wait time information
         """
         try:
+            # Get wait time from config first (optimization to avoid duplicate queries)
+            config = await ConfigService.get_bot_config(session)
+            wait_time_minutes = config.wait_time_minutes
+
             # Check if user already has a pending request
             result = await session.execute(
                 select(FreeChannelRequest).where(
                     FreeChannelRequest.user_id == user_id,
-                    FreeChannelRequest.processed == False  # noqa: E712
+                    FreeChannelRequest.processed.is_(False)
                 )
             )
             pending_request = result.scalars().first()
 
             if pending_request:
                 # User already has a pending request, calculate remaining time
-                config = await ConfigService.get_bot_config(session)
-                wait_time_minutes = config.wait_time_minutes
 
                 # Calculate how much time has passed since the request
                 current_time = datetime.now(timezone.utc)
@@ -147,10 +149,6 @@ class ChannelManagementService:
             session.add(new_request)
             await session.commit()
             await session.refresh(new_request)
-
-            # Get wait time from config
-            config = await ConfigService.get_bot_config(session)
-            wait_time_minutes = config.wait_time_minutes
 
             return {
                 "status": "queued",

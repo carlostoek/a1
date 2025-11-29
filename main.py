@@ -61,12 +61,13 @@ async def main():
     @dp.shutdown()
     async def shutdown_hook():
         logger.info("Cerrando bot...")
+        # Close bot session first to stop receiving updates
+        await bot.session.close()
+        await dp.storage.close()
         # Stop background tasks
         await background_manager.stop()
         # Close database connection
         await engine.dispose()
-        # Close bot session
-        await bot.session.close()
         logger.info("Conexiones cerradas")
 
     try:
