@@ -15,12 +15,13 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
-from bot.states import SubscriptionTierStates
+from bot.states import SubscriptionTierStates, ChannelSetupStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 
 # Create router and apply middlewares
 admin_router = Router()
+admin_router.message.middleware(DBSessionMiddleware())
 admin_router.callback_query.middleware(DBSessionMiddleware())
 admin_router.callback_query.middleware(AdminAuthMiddleware())
 
@@ -87,7 +88,18 @@ def get_config_menu_kb():
     """Generate Config menu keyboard with buttons: [Gestionar Tarifas, Volver]"""
     keyboard = InlineKeyboardBuilder()
     keyboard.button(text="Gestionar Tarifas", callback_data="config_tiers")
+    keyboard.button(text="⚙️ Configurar Canales", callback_data="config_channels_menu")
     keyboard.button(text="Volver", callback_data="admin_main_menu")
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def get_channels_config_kb():
+    """Generate channels config menu keyboard with buttons: [Canal VIP, Canal Free, Volver]"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="Canal VIP", callback_data="setup_vip_select")
+    keyboard.button(text="Canal Free", callback_data="setup_free_select")
+    keyboard.button(text="Volver", callback_data="admin_config")
     keyboard.adjust(1)
     return keyboard.as_markup()
 
@@ -115,26 +127,7 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
 
             if result["success"]:
                 tier = result["tier"]
-                bot_config = await ConfigService.get_bot_config(session)
-                vip_channel_id = bot_config.vip_channel_id
-
-                if not vip_channel_id:
-                    await message.reply("✅ Token canjeado, pero el canal VIP no está configurado. Contacta a un administrador.")
-                    return
-
-                expire_date = datetime.now(timezone.utc) + timedelta(days=tier.duration_days)
-                invite_link = await message.bot.create_chat_invite_link(
-                    chat_id=vip_channel_id,
-                    member_limit=1,
-                    expire_date=expire_date
-                )
-
-                response_text = (
-                    f"🎉 ¡Felicidades! Has canjeado un token para la tarifa **{tier.name}**.\n\n"
-                    f"Aquí tienes tu enlace de invitación único para el canal VIP. Es válido solo para ti y expirará en {tier.duration_days} días.\n\n"
-                    f"➡️ **[UNIRSE AL CANAL VIP]({invite_link.invite_link})**"
-                )
-                await message.reply(response_text, parse_mode="Markdown")
+                await SubscriptionService.send_token_redemption_success(message, tier, session)
             else:
                 await message.reply(f"❌ Error al canjear el token: {result['error']}")
 
@@ -153,8 +146,6 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
             "Si buscas acceso gratuito, usa el comando `/free`."
         )
 
-# Apply middleware to the handler directly
-cmd_admin.middleware(DBSessionMiddleware())
 
 # Navigation callback handlers
 @admin_router.callback_query(F.data == "admin_main_menu")
@@ -398,8 +389,6 @@ async def process_tier_price(message: Message, state: FSMContext, session: Async
         await message.answer(f"❌ Error al crear la tarifa: {e}")
         await state.clear()
 
-# Apply middleware to this message handler that needs database access
-process_tier_price.middleware(DBSessionMiddleware())
 
 @admin_router.callback_query(F.data.startswith("tier_edit_"))
 async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession):
@@ -426,5 +415,94 @@ async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession)
     keyboard.button(text="🗑️ Eliminar", callback_data=f"tier_delete_{tier.id}")
     keyboard.button(text="⬅️ Volver", callback_data="config_tiers")
     keyboard.adjust(1)
-    
+
     await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
+
+
+# Callback handlers for channel configuration
+@admin_router.callback_query(F.data == "config_channels_menu")
+async def config_channels_menu(callback_query: CallbackQuery):
+    """Display channel configuration menu."""
+    await safe_edit_message(
+        callback_query,
+        "⚙️ Configuración de Canales",
+        reply_markup=get_channels_config_kb()
+    )
+
+
+@admin_router.callback_query(F.data.startswith("setup_"))
+async def setup_channel_start(callback_query: CallbackQuery, state: FSMContext):
+    """Start the channel setup flow based on the type (VIP or Free)."""
+    # Extract the channel type from callback data
+    callback_data = callback_query.data
+    if callback_data == "setup_vip_select":
+        channel_type = "vip"
+        type_name = "VIP"
+    elif callback_data == "setup_free_select":
+        channel_type = "free"
+        type_name = "Free"
+    else:
+        await callback_query.answer("Error: Tipo de canal no reconocido", show_alert=True)
+        return
+
+    # Store the channel type in FSM context
+    await state.update_data(channel_type=channel_type)
+
+    # Set the state to wait for the channel ID or forwarded message
+    await state.set_state(ChannelSetupStates.waiting_channel_id_or_forward)
+
+    # Respond with instructions
+    instructions = f"✅ Modo de Configuración de Canal {type_name}\nPor favor, envía una de estas dos opciones:\n * El ID numérico del canal (ej: -10012345678).\n * Reenvía un mensaje de ese canal a este chat.\n   Asegúrate de que el bot ya es administrador del canal."
+    await safe_edit_message(callback_query, instructions)
+
+
+# Message handler for channel ID or forwarded message
+@admin_router.message(ChannelSetupStates.waiting_channel_id_or_forward)
+async def process_channel_input(message: Message, state: FSMContext, session: AsyncSession):
+    """Process channel ID input (either manual ID or forwarded message)."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    # Get the channel type from FSM data
+    data = await state.get_data()
+    channel_type = data.get("channel_type")
+    if not channel_type:
+        await message.reply("❌ Error interno. No se pudo determinar el tipo de canal. Por favor, intenta de nuevo desde el menú de configuración.")
+        await state.clear()
+        return
+
+    channel_id = None
+
+    # Extract ID from forwarded message or from text
+    if message.forward_from_chat:
+        # Channel ID from forwarded message
+        channel_id = message.forward_from_chat.id
+    else:
+        # Assume user sent the numeric ID directly
+        try:
+            channel_id = int(message.text)
+        except (ValueError, TypeError):
+            await message.reply("❌ Error al registrar el canal. Razón: Formato de ID inválido. Por favor, envía un ID numérico válido (ej: -10012345678) o reenvía un mensaje del canal.")
+            return
+
+    # Call the ChannelManagementService to register the channel ID
+    result = await ChannelManagementService.register_channel_id(
+        channel_type=channel_type,
+        raw_id=channel_id,
+        bot=message.bot,
+        session=session
+    )
+
+    if result["success"]:
+        type_name = "VIP" if channel_type == "vip" else "Free"
+        response_text = f"🎉 Canal {type_name} registrado con ID: {result['channel_id']}. ¡Configuración guardada!"
+        await message.reply(response_text)
+    else:
+        await message.reply(f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
+
+    # Clear the state
+    await state.clear()

@@ -5,10 +5,12 @@ Handles user interactions like token redemption and free channel access.
 import re
 from aiogram import Router, F
 from aiogram.types import Message
+from datetime import datetime, timezone, timedelta
 from aiogram.filters import Command
 from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
+from bot.services.config_service import ConfigService
 
 # Regular expression patterns compiled once at module level for efficiency
 _UUID_PATTERN = re.compile(r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$')
@@ -87,10 +89,8 @@ async def process_token_message(message: Message, session):
 
         if result["success"]:
             # Success: token was redeemed
-            duration = result["duration"]
-            expiry = result["expiry"].strftime('%Y-%m-%d %H:%M:%S UTC')
-            response_text = f"✅ Token canjeado. Tienes acceso por {duration} horas. Fecha de expiración: {expiry}"
-            await message.reply(response_text)
+            tier = result["tier"]
+            await SubscriptionService.send_token_redemption_success(message, tier, session)
         else:
             # Error: token was invalid
             error = result["error"]

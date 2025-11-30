@@ -1,13 +1,15 @@
 """
 Service for managing channel requests and statistics.
 """
-from typing import List, Dict, Any
+import logging
+from typing import List, Dict, Any, Union
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
-from bot.database.models import FreeChannelRequest, VIPSubscriber, BotConfig
+from aiogram.exceptions import TelegramBadRequest
+from bot.database.models import FreeChannelRequest, UserSubscription, BotConfig
 from bot.services.exceptions import ServiceError
 from bot.services.config_service import ConfigService
 
@@ -72,9 +74,10 @@ class ChannelManagementService:
             if channel_type == 'vip':
                 # Count active VIP subscribers
                 result = await session.execute(
-                    select(func.count(VIPSubscriber.id)).where(
-                        VIPSubscriber.status == "active",
-                        VIPSubscriber.expiry_date > datetime.now(timezone.utc)
+                    select(func.count(UserSubscription.id)).where(
+                        UserSubscription.status == "active",
+                        UserSubscription.role == "vip",
+                        UserSubscription.expiry_date > datetime.now(timezone.utc)
                     )
                 )
                 active_subscribers = result.scalar()
@@ -100,6 +103,76 @@ class ChannelManagementService:
                 }
         except SQLAlchemyError as e:
             raise ServiceError(f"Error retrieving channel statistics: {str(e)}")
+
+    @staticmethod
+    async def register_channel_id(channel_type: str, raw_id: Union[int, str], bot, session: AsyncSession) -> Dict[str, Any]:
+        """
+        Register channel ID for VIP or Free channel.
+
+        Args:
+            channel_type: 'vip' or 'free'
+            raw_id: The channel ID (numeric) or username/URL (string)
+            bot: Bot instance for verification
+            session: Database session
+
+        Returns:
+            Dictionary with success status and message
+        """
+        try:
+            # Validate channel type
+            if channel_type not in ['vip', 'free']:
+                return {"success": False, "error": "Invalid channel type. Use 'vip' or 'free'."}
+
+            # Convert raw_id to integer if it's a numeric string
+            channel_id = None
+            if isinstance(raw_id, int):
+                channel_id = raw_id
+            else:
+                # Try to extract ID from raw_id that might be username, URL, etc.
+                try:
+                    # If it's already a numeric ID as string
+                    channel_id = int(raw_id)
+                except ValueError:
+                    # If it's a username or URL, we might need to handle that differently
+                    # For now, we'll try to handle common URL formats or @usernames
+                    if raw_id.startswith('@'):
+                        # It's a username, we need to get the actual ID
+                        # This is complex because we need to get the chat by username
+                        # For now, we'll return an error suggesting the numeric ID
+                        return {"success": False, "error": "Please provide the numeric ID of the channel (e.g., -10012345678) instead of a username."}
+                    elif 't.me/' in raw_id or 'telegram.me/' in raw_id:
+                        # It's a link to a chat, extracting the ID is not straightforward
+                        return {"success": False, "error": "Please provide the numeric ID of the channel (e.g., -10012345678) instead of a link."}
+                    else:
+                        return {"success": False, "error": "Invalid channel ID format. Please provide the numeric ID (e.g., -10012345678)."}
+
+            # Verify that the bot is an admin in the channel
+            try:
+                member = await bot.get_chat_member(chat_id=channel_id, user_id=bot.id)
+                if not member.status in ['administrator', 'creator']:
+                    return {"success": False, "error": "El bot no es administrador o el canal no existe."}
+            except TelegramBadRequest:
+                return {"success": False, "error": "El bot no es administrador, el canal no existe o el ID es incorrecto."}
+            except Exception as e:
+                logging.error(f"Error inesperado al verificar el canal {channel_id}: {e}")
+                return {"success": False, "error": f"Error inesperado: {e}"}
+
+            # Update the bot configuration with the new channel ID
+            config = await ConfigService.get_bot_config(session)
+            if channel_type == 'vip':
+                config.vip_channel_id = str(channel_id)
+            elif channel_type == 'free':
+                config.free_channel_id = str(channel_id)
+
+            await session.commit()
+
+            return {"success": True, "channel_id": channel_id}
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {"success": False, "error": f"Database error: {str(e)}"}
+        except Exception as e:
+            return {"success": False, "error": f"Error: {str(e)}"}
+
 
     @staticmethod
     async def request_free_access(session: AsyncSession, user_id: int) -> Dict[str, Any]:

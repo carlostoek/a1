@@ -4,15 +4,9 @@ FSM States definitions for the Telegram Admin Bot.
 from aiogram.fsm.state import State, StatesGroup
 
 
-class FreeChannelSetupStates(StatesGroup):
-    waiting_channel_link = State()
-    waiting_channel_id = State()
-    waiting_wait_time = State()
-
-
-class VIPChannelSetupStates(StatesGroup):
-    waiting_channel_link = State()
-    waiting_channel_id = State()
+class ChannelSetupStates(StatesGroup):
+    # Usado para esperar el ID o el mensaje reenviado del canal (VIP o Free)
+    waiting_channel_id_or_forward = State()
 
 
 class PostSendingStates(StatesGroup):
