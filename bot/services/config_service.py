@@ -158,3 +158,43 @@ class ConfigService:
             return True
         except SQLAlchemyError as e:
             raise ConfigError(f"Error deleting subscription tier: {str(e)}")
+
+    @classmethod
+    async def setup_reactions(cls, channel_type: str, reactions_str: str, session: AsyncSession) -> List[str]:
+        """
+        Parse, validate, and store emoji reactions for a specific channel type.
+
+        Args:
+            channel_type: 'vip' or 'free'
+            reactions_str: String of emojis separated by commas
+            session: Database session
+
+        Returns:
+            List of saved emojis.
+
+        Raises:
+            ValueError: If input is invalid (e.g., too many emojis, invalid channel type).
+            ConfigError: On database errors.
+        """
+        try:
+            reactions_list = [e.strip() for e in reactions_str.split(',') if e.strip()]
+
+            if len(reactions_list) > 10:
+                raise ValueError("Número máximo de reacciones excedido (máximo 10 emojis).")
+
+            if channel_type not in ['vip', 'free']:
+                raise ValueError("Tipo de canal inválido. Use 'vip' o 'free'.")
+
+            config = await cls.get_bot_config(session)
+
+            if channel_type == 'vip':
+                config.vip_reactions = reactions_list
+            else:  # 'free'
+                config.free_reactions = reactions_list
+
+            await session.commit()
+
+            return reactions_list
+        except SQLAlchemyError as e:
+            await session.rollback()
+            raise ConfigError(f"Error guardando reacciones: {str(e)}")

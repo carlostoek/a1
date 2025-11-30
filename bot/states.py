@@ -23,3 +23,7 @@ class SubscriptionTierStates(StatesGroup):
 
 class FreeConfigStates(StatesGroup):
     waiting_wait_time_minutes = State()
+
+
+class ReactionSetupStates(StatesGroup):
+    waiting_reactions_input = State()  # Espera la cadena de emojis separados por coma.

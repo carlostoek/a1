@@ -15,7 +15,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
-from bot.states import SubscriptionTierStates, ChannelSetupStates, FreeConfigStates
+from bot.states import SubscriptionTierStates, ChannelSetupStates, FreeConfigStates, ReactionSetupStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 from bot.utils.ui import MenuFactory
@@ -454,6 +454,41 @@ async def admin_config(callback_query: CallbackQuery):
     )
 
 
+@admin_router.callback_query(F.data.in_({"vip_config", "free_config"}))
+async def admin_channel_config(callback_query: CallbackQuery):
+    """Muestra las opciones de configuración para un tipo de canal."""
+    channel_type = "vip" if callback_query.data == "vip_config" else "free"
+
+    if channel_type == "vip":
+        title = "Configuración VIP"
+        options = [
+            ("📊 Ver Stats", "vip_stats"),
+            ("💄 Configurar Reacciones", "vip_config_reactions"),
+        ]
+        back_callback = "admin_vip"
+    else:  # free
+        title = "Configuración Free"
+        options = [
+            ("📊 Ver Stats", "free_stats"),
+            ("💄 Configurar Reacciones", "free_config_reactions"),
+            ("⏱️ Configurar Tiempo de Espera", "free_wait_time_config"),
+        ]
+        back_callback = "admin_free"
+
+    menu_data = MenuFactory.create_menu(
+        title=title,
+        options=options,
+        back_callback=back_callback,
+        has_main=True
+    )
+
+    await safe_edit_message(
+        callback_query,
+        menu_data['text'],
+        menu_data['markup']
+    )
+
+
 @admin_router.callback_query(F.data == "config_tiers")
 async def manage_tiers_menu(callback_query: CallbackQuery, session: AsyncSession):
     """Display a paginated list of all active subscription tiers."""
@@ -575,6 +610,81 @@ async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession)
     keyboard.adjust(1)
 
     await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
+
+
+# Callback handlers for reaction configuration
+@admin_router.callback_query(F.data.in_({"vip_config_reactions", "free_config_reactions"}))
+async def setup_reactions_start(callback_query: CallbackQuery, state: FSMContext):
+    """Inicia el flujo de configuración de reacciones para un canal."""
+    channel_type = "vip" if callback_query.data == "vip_config_reactions" else "free"
+    await state.update_data(channel_type=channel_type)
+
+    await state.set_state(ReactionSetupStates.waiting_reactions_input)
+
+    channel_name_upper = channel_type.upper()
+    instructions = (f"💋 Configuración de Reacciones Inline {channel_name_upper}\n"
+                   f"Envía la lista de emojis permitidos separados por coma (ej: 👍, 🔥, 🚀). "
+                   f"Se usarán como botones de interacción en las publicaciones.")
+
+    await safe_edit_message(
+        callback_query,
+        instructions,
+        reply_markup=None
+    )
+
+
+# Message handler for processing reactions input
+@admin_router.message(ReactionSetupStates.waiting_reactions_input)
+async def process_reactions_input(message: Message, state: FSMContext, session: AsyncSession):
+    """Process the input of reaction emojis."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    # Get the channel type from FSM data
+    data = await state.get_data()
+    channel_type = data.get("channel_type", "unknown")
+
+    if not channel_type or channel_type not in ["vip", "free"]:
+        await message.reply("❌ Error interno. No se pudo determinar el tipo de canal. Por favor, intenta de nuevo.")
+        await state.clear()
+        return
+
+    # Call the ConfigService to save reactions
+    try:
+        reactions_list = await ConfigService.setup_reactions(
+            channel_type=channel_type,
+            reactions_str=message.text,
+            session=session
+        )
+
+        # Success: show list of reactions that were saved
+        response_text = f"✅ Reacciones guardadas. Lista: {', '.join(reactions_list)}."
+        await message.reply(response_text)
+
+        # Clear the state
+        await state.clear()
+
+        # Rather than calling admin_vip or admin_free handlers that expect CallbackQuery,
+        # we can create a simple menu to return to the appropriate configuration
+        if channel_type == "vip":
+            await message.reply("Regresando al menú de configuración VIP...")
+            # We could send the appropriate menu here, but for now just return to general config
+            # For a complete implementation, we would need to refactor to have shared functions
+            # that generate the menu content
+        else:  # free
+            await message.reply("Regresando al menú de configuración Free...")
+
+    except (ValueError, ConfigError) as e:
+        # Error: show error message
+        error = str(e)
+        await message.reply(f"❌ Error al guardar reacciones: {error}")
+
+        # Clear the state
+        await state.clear()
 
 
 # Callback handlers for channel configuration

@@ -4,7 +4,13 @@ Contains standardized components for creating menus and UI elements.
 """
 from typing import List, Tuple, Dict, Any, Optional
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.filters.callback_data import CallbackData
 
+
+class ReactionCallback(CallbackData, prefix="react"):
+    """Callback data for reaction buttons"""
+    channel_type: str
+    emoji: str
 
 class MenuFactory:
     """
@@ -84,3 +90,26 @@ class MenuFactory:
             dict: {'text': str, 'markup': InlineKeyboardMarkup}
         """
         return cls.create_menu(title, options, has_main=False)
+
+    @classmethod
+    def create_reaction_keyboard(cls, channel_type: str, reactions_list: List[str]) -> InlineKeyboardMarkup:
+        """
+        Create an inline keyboard with reaction buttons for posts.
+
+        Args:
+            channel_type: 'vip' or 'free' channel type
+            reactions_list: List of emojis to use as reaction buttons
+
+        Returns:
+            InlineKeyboardMarkup with reaction buttons
+        """
+        # Create buttons in a single row for reactions
+        row = []
+        for emoji in reactions_list:
+            # Use ReactionCallback instead of manual string formatting
+            callback_obj = ReactionCallback(channel_type=channel_type, emoji=emoji)
+            button = cls._create_button(emoji, callback_obj.pack())
+            row.append(button)
+
+        # Return markup with buttons in a single row
+        return InlineKeyboardMarkup(inline_keyboard=[row])
