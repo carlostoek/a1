@@ -5,10 +5,12 @@ Handles user interactions like token redemption and free channel access.
 import re
 from aiogram import Router, F
 from aiogram.types import Message
+from datetime import datetime, timezone, timedelta
 from aiogram.filters import Command
 from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
+from bot.services.config_service import ConfigService
 
 # Regular expression patterns compiled once at module level for efficiency
 _UUID_PATTERN = re.compile(r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$')
@@ -87,10 +89,45 @@ async def process_token_message(message: Message, session):
 
         if result["success"]:
             # Success: token was redeemed
-            duration = result["duration"]
-            expiry = result["expiry"].strftime('%Y-%m-%d %H:%M:%S UTC')
-            response_text = f"✅ Token canjeado. Tienes acceso por {duration} horas. Fecha de expiración: {expiry}"
-            await message.reply(response_text)
+            tier = result["tier"]
+            duration_days = tier.duration_days
+            bot_config = await ConfigService.get_bot_config(session)
+            vip_channel_id = bot_config.vip_channel_id
+
+            if not vip_channel_id:
+                response_text = (
+                    f"✅ Token canjeado, pero el canal VIP no está configurado. "
+                    f"Contacta a un administrador."
+                )
+                await message.reply(response_text)
+                return
+
+            # Calculate expiry date to include in message
+            expiry_date = datetime.now(timezone.utc) + timedelta(days=duration_days)
+
+            # Create a chat invite link for the VIP channel
+            try:
+                invite_link = await message.bot.create_chat_invite_link(
+                    chat_id=vip_channel_id,
+                    member_limit=1,  # Single use invite
+                    expire_date=expiry_date  # Expire when subscription expires
+                )
+
+                response_text = (
+                    f"🎉 ¡Felicidades! Has canjeado un token para la tarifa **{tier.name}**.\n\n"
+                    f"Aquí tienes tu enlace de invitación único para el canal VIP. "
+                    f"Es válido solo para ti y expirará en {duration_days} días.\n\n"
+                    f"➡️ **[UNIRSE AL CANAL VIP]({invite_link.invite_link})**"
+                )
+                await message.reply(response_text, parse_mode="Markdown")
+            except Exception as e:
+                # If invite link creation fails, inform the user
+                response_text = (
+                    f"✅ Token canjeado para la tarifa **{tier.name}** por {duration_days} días.\n"
+                    f"Sin embargo, hubo un error al generar el enlace de invitación. "
+                    f"Contacta a un administrador para acceso al canal VIP."
+                )
+                await message.reply(response_text)
         else:
             # Error: token was invalid
             error = result["error"]
