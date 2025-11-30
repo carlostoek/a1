@@ -370,7 +370,9 @@ async def process_free_wait_time(message: Message, state: FSMContext, session: A
     except ValueError:
         await message.reply("❌ Por favor, introduce un número válido de minutos (ej: 60, 1440, 10080).")
     except Exception as e:
-        await message.reply(f"❌ Error al actualizar la configuración: {str(e)}")
+        # Escape special characters in the error message to avoid Telegram parsing issues
+        error_msg = str(e).replace('<', '\\<').replace('>', '\\>')
+        await message.reply(f"❌ Error al actualizar la configuración: {error_msg}")
         await state.clear()
 
 
