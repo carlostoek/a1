@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlalchemy import Integer, BigInteger, String, DateTime, Boolean, JSON, ForeignKey, Index
+from sqlalchemy import Integer, BigInteger, String, DateTime, Boolean, JSON, ForeignKey, Index, Float
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, timezone
 from .base import Base
@@ -17,15 +17,17 @@ class BotConfig(Base):
     subscription_fees: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
-class VIPSubscriber(Base):
-    __tablename__ = "vip_subscribers"
+class UserSubscription(Base):
+    __tablename__ = "user_subscriptions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    role: Mapped[str] = mapped_column(String(20), default="free", index=True)  # 'free', 'vip', 'admin'
     join_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    expiry_date: Mapped[datetime] = mapped_column(DateTime)
-    status: Mapped[str] = mapped_column(String(20))  # active/expired
-    token_id: Mapped[int] = mapped_column(Integer, ForeignKey("invitation_tokens.id"))
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active/expired
+    token_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("invitation_tokens.id"), nullable=True)
+    reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Index on [status, expiry_date]
     __table_args__ = (Index("idx_status_expiry", "status", "expiry_date"),)
@@ -38,10 +40,20 @@ class InvitationToken(Base):
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
     generated_by: Mapped[int] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    duration_hours: Mapped[int] = mapped_column(Integer)
+    tier_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscription_tiers.id"))
     used: Mapped[bool] = mapped_column(Boolean, default=False)
     used_by: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class SubscriptionTier(Base):
+    __tablename__ = "subscription_tiers"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True, index=True) # Nombre de la tarifa (ej: 1 Mes PRO)
+    duration_days: Mapped[int] = mapped_column(Integer) # Duración en días
+    price_usd: Mapped[float] = mapped_column(Float) # Precio
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class FreeChannelRequest(Base):

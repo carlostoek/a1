@@ -4,13 +4,16 @@ Service for managing VIP subscriptions and tokens.
 import uuid
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
+from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from bot.database.models import (
     InvitationToken,
-    VIPSubscriber
+    UserSubscription,
+    SubscriptionTier
 )
+from bot.services.config_service import ConfigService
 from bot.services.exceptions import (
     TokenInvalidError,
     TokenNotFoundError,
@@ -27,12 +30,18 @@ class SubscriptionService:
     async def generate_vip_token(
         session: AsyncSession,
         admin_id: int,
-        duration_hours: int
-    ) -> InvitationToken:
+        tier_id: int,
+        bot: Bot
+    ) -> str:
         """
-        Generate a new VIP invitation token.
+        Generate a new VIP invitation token link.
         """
         try:
+            # Check if the tier exists
+            tier = await ConfigService.get_tier_by_id(session, tier_id)
+            if not tier:
+                raise SubscriptionError(f"Subscription tier with ID {tier_id} not found.")
+
             # Generate a unique token string
             token_str = str(uuid.uuid4())
 
@@ -40,14 +49,17 @@ class SubscriptionService:
             token = InvitationToken(
                 token=token_str,
                 generated_by=admin_id,
-                duration_hours=duration_hours
+                tier_id=tier_id
             )
 
             session.add(token)
             await session.commit()
-            await session.refresh(token)
 
-            return token
+            # Get bot username to create the link
+            bot_user = await bot.me()
+            bot_username = bot_user.username
+            
+            return f"https://t.me/{bot_username}?start={token_str}"
         except SQLAlchemyError as e:
             await session.rollback()
             raise SubscriptionError(f"Error generating VIP token: {str(e)}")
@@ -75,9 +87,8 @@ class SubscriptionService:
     async def register_subscription(
         session: AsyncSession,
         user_id: int,
-        token_id: int,
-        duration_hours: int
-    ) -> VIPSubscriber:
+        token_id: int
+    ) -> UserSubscription:
         """
         Register a new VIP subscription using a valid token.
         Marks the token as used and creates a subscription record.
@@ -95,16 +106,22 @@ class SubscriptionService:
             if not token:
                 raise TokenNotFoundError(f"Token with ID {token_id} not found or already used")
 
+            # Get tier to determine duration
+            tier = await ConfigService.get_tier_by_id(session, token.tier_id)
+            if not tier:
+                raise SubscriptionError(f"Associated subscription tier not found for token {token_id}")
+
             # Calculate expiry date from current time + duration
             now = datetime.now(timezone.utc)
-            expiry_date = now + timedelta(hours=duration_hours)
+            expiry_date = now + timedelta(days=tier.duration_days)
 
             # Create the VIP subscriber record
-            subscriber = VIPSubscriber(
+            subscriber = UserSubscription(
                 user_id=user_id,
                 join_date=now,
                 expiry_date=expiry_date,
                 status="active",
+                role="vip",
                 token_id=token.id
             )
 
@@ -139,10 +156,10 @@ class SubscriptionService:
 
             # Query for active subscription that hasn't expired
             result = await session.execute(
-                select(VIPSubscriber).where(
-                    VIPSubscriber.user_id == user_id,
-                    VIPSubscriber.status == "active",
-                    VIPSubscriber.expiry_date > current_time
+                select(UserSubscription).where(
+                    UserSubscription.user_id == user_id,
+                    UserSubscription.status == "active",
+                    UserSubscription.expiry_date > current_time
                 )
             )
             subscriber = result.scalars().first()
@@ -155,90 +172,60 @@ class SubscriptionService:
     async def redeem_token(session: AsyncSession, user_id: int, token_str: str) -> Dict[str, Any]:
         """
         Redeem a VIP token.
-
-        Args:
-            session: Database session
-            user_id: ID of the user redeeming the token
-            token_str: The token string to redeem
-
-        Returns:
-            Dictionary with success status and token details or error message
         """
         try:
             # Search for the token in the database
-            result = await session.execute(
-                select(InvitationToken).where(
-                    InvitationToken.token == token_str
-                )
-            )
-            token = result.scalars().first()
+            token = await SubscriptionService.validate_token(session, token_str)
 
             if not token:
-                return {
-                    "success": False,
-                    "error": "Token no encontrado"
-                }
+                return {"success": False, "error": "Token no válido o ya ha sido usado"}
 
-            # Check if token is already used
-            if token.used:
-                return {
-                    "success": False,
-                    "error": "Token ya ha sido usado"
-                }
+            # Get the tier details for duration
+            tier = await ConfigService.get_tier_by_id(session, token.tier_id)
+            if not tier:
+                return {"success": False, "error": "La tarifa de suscripción asociada a este token ya no existe."}
 
-            # Check if token has expired (compare creation time + duration vs current time)
-            token_expiration_time = token.created_at + timedelta(hours=token.duration_hours)
-            current_time = datetime.now(timezone.utc)
+            duration_days = tier.duration_days
 
-            if current_time > token_expiration_time:
-                return {
-                    "success": False,
-                    "error": "Token ha expirado"
-                }
-
-            # Token is valid, mark it as used
+            # Mark token as used
             token.used = True
             token.used_by = user_id
             token.used_at = datetime.now(timezone.utc)
 
-            # Create/update VIP subscription for the user
-            expiry_date = datetime.now(timezone.utc) + timedelta(hours=token.duration_hours)
-
-            # Check if user already has a subscription
-            existing_subscriber_result = await session.execute(
-                select(VIPSubscriber).where(
-                    VIPSubscriber.user_id == user_id
-                )
-            )
-            existing_subscriber = existing_subscriber_result.scalars().first()
-
-            if existing_subscriber:
-                # Extend existing subscription
-                now = datetime.now(timezone.utc)
-                # If subscription is expired, start from now. Otherwise, extend from the current expiry_date.
-                start_date = max(now, existing_subscriber.expiry_date)
-                existing_subscriber.expiry_date = start_date + timedelta(hours=token.duration_hours)
-                existing_subscriber.status = "active"
-                existing_subscriber.token_id = token.id
+            # Check for existing subscription to extend it
+            result = await session.execute(select(UserSubscription).where(UserSubscription.user_id == user_id))
+            subscriber = result.scalars().first()
+            
+            now = datetime.now(timezone.utc)
+            
+            if subscriber:
+                # If subscription is expired, start new one from now. Otherwise, extend.
+                start_date = max(now, subscriber.expiry_date)
+                subscriber.expiry_date = start_date + timedelta(days=duration_days)
+                subscriber.status = "active"
+                subscriber.role = "vip"
+                subscriber.token_id = token.id
             else:
-                # Create new subscription
-                subscriber = VIPSubscriber(
+                # Create a new subscription
+                subscriber = UserSubscription(
                     user_id=user_id,
-                    join_date=datetime.now(timezone.utc),
-                    expiry_date=expiry_date,
+                    join_date=now,
+                    expiry_date=now + timedelta(days=duration_days),
                     status="active",
-                    token_id=token.id
+                    role="vip",
+                    token_id=token.id,
                 )
                 session.add(subscriber)
-
-            # Commit changes to the database
+            
             await session.commit()
 
             return {
                 "success": True,
-                "duration": token.duration_hours,
-                "expiry": expiry_date
+                "tier": tier
             }
+        except (TokenInvalidError, SubscriptionError) as e:
+            await session.rollback()
+            raise SubscriptionError(f"Error redeeming token: {e}")
         except SQLAlchemyError as e:
             await session.rollback()
-            raise SubscriptionError(f"Error validating token: {str(e)}")
+            raise SubscriptionError(f"Database error during token redemption: {e}")

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy import select
 
 from bot.database.base import get_session
-from bot.database.models import FreeChannelRequest, VIPSubscriber, BotConfig
+from bot.database.models import FreeChannelRequest, UserSubscription, BotConfig
 from bot.services.channel_service import ChannelManagementService
 from bot.config import Settings
 
@@ -158,71 +158,89 @@ class BackgroundTaskManager:
     
     async def check_expired_vips(self, bot: Bot):
         """
-        Loop to check for expired VIP subscriptions.
+        Loop to check for expired VIP subscriptions and send reminders.
         Runs every 60 minutes.
         """
         logger.info("Starting check_expired_vips loop...")
         
         while self.running:
             try:
-                # Get all active users whose subscriptions have expired
                 async for session in get_session():
-                    current_time = datetime.now(timezone.utc)
-                    
-                    expired_vips_result = await session.execute(
-                        select(VIPSubscriber).where(
-                            VIPSubscriber.status == "active",
-                            VIPSubscriber.expiry_date < current_time
+                    now = datetime.now(timezone.utc)
+
+                    # 1. Handle expired subscriptions
+                    expired_subs_result = await session.execute(
+                        select(UserSubscription).where(
+                            UserSubscription.status == "active",
+                            UserSubscription.role == "vip",
+                            UserSubscription.expiry_date < now
                         )
                     )
-                    expired_vips = expired_vips_result.scalars().all()
-                    
-                    # Process each expired subscription
-                    for subscriber in expired_vips:
+                    expired_subs = expired_subs_result.scalars().all()
+
+                    for sub in expired_subs:
                         try:
-                            # Update status to expired
-                            subscriber.status = "expired"
+                            sub.status = "expired"
+                            sub.role = "free"
                             
-                            # If there's a VIP channel, remove the user
-                            if self.settings.vip_channel_id:
+                            config = await ConfigService.get_bot_config(session)
+                            vip_channel_id = config.vip_channel_id
+
+                            if vip_channel_id:
                                 try:
-                                    # Remove user from VIP channel (ban and unban to kick)
-                                    await bot.ban_chat_member(
-                                        chat_id=self.settings.vip_channel_id,
-                                        user_id=subscriber.user_id
-                                    )
-                                    await bot.unban_chat_member(
-                                        chat_id=self.settings.vip_channel_id,
-                                        user_id=subscriber.user_id
-                                    )
-                                    
-                                    logger.info(f"Removed expired VIP user {subscriber.user_id} from channel")
+                                    await bot.ban_chat_member(chat_id=vip_channel_id, user_id=sub.user_id)
+                                    await bot.unban_chat_member(chat_id=vip_channel_id, user_id=sub.user_id)
+                                    logger.info(f"Removed expired user {sub.user_id} from VIP channel.")
                                 except Exception as e:
-                                    logger.error(f"Could not remove user {subscriber.user_id} from VIP channel: {e}")
+                                    logger.error(f"Could not remove user {sub.user_id} from VIP channel: {e}")
                             
-                            # Notify the user about expiration
                             try:
                                 await bot.send_message(
-                                    chat_id=subscriber.user_id,
-                                    text="🚫 Tu suscripción VIP ha expirado."
+                                    chat_id=sub.user_id,
+                                    text="🚫 Tu suscripción VIP ha expirado. Tu rol ha sido cambiado a 'free'."
                                 )
                             except Exception as e:
-                                logger.error(f"Could not notify user {subscriber.user_id} about expiration: {e}")
+                                logger.error(f"Could not notify user {sub.user_id} about expiration: {e}")
                             
-                            # Commit changes
                             await session.commit()
-                            
-                            logger.info(f"Marked VIP subscription expired for user {subscriber.user_id}")
+                            logger.info(f"Subscription for user {sub.user_id} expired. Role set to 'free'.")
+
                         except Exception as e:
-                            logger.error(f"Error processing expired VIP for user {subscriber.user_id}: {e}")
+                            logger.error(f"Error processing expired subscription for user {sub.user_id}: {e}")
                             await session.rollback()
+
+                    # 2. Handle subscription reminders (24 hours before)
+                    reminder_time_start = now
+                    reminder_time_end = now + timedelta(hours=24)
+                    
+                    reminder_subs_result = await session.execute(
+                        select(UserSubscription).where(
+                            UserSubscription.status == "active",
+                            UserSubscription.role == "vip",
+                            UserSubscription.reminder_sent.is_(False),
+                            UserSubscription.expiry_date.between(reminder_time_start, reminder_time_end)
+                        )
+                    )
+                    reminder_subs = reminder_subs_result.scalars().all()
+
+                    for sub in reminder_subs:
+                        try:
+                            await bot.send_message(
+                                chat_id=sub.user_id,
+                                text="⏳ ¡Atención! Tu suscripción VIP está a punto de expirar en menos de 24 horas."
+                            )
+                            sub.reminder_sent = True
+                            await session.commit()
+                            logger.info(f"Sent expiration reminder to user {sub.user_id}.")
+                        except Exception as e:
+                            logger.error(f"Could not send reminder to user {sub.user_id}: {e}")
             
             except Exception as e:
                 logger.error(f"Error in check_expired_vips loop: {e}")
             
             # Wait 60 minutes before next iteration
             try:
-                await asyncio.sleep(3600)  # 60 minutes
+                await asyncio.sleep(3600)
             except asyncio.CancelledError:
                 logger.info("check_expired_vips loop cancelled.")
                 break
