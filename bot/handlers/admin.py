@@ -135,18 +135,28 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
                     return
 
                 expire_date = datetime.now(timezone.utc) + timedelta(days=tier.duration_days)
-                invite_link = await message.bot.create_chat_invite_link(
-                    chat_id=vip_channel_id,
-                    member_limit=1,
-                    expire_date=expire_date
-                )
+                try:
+                    invite_link = await message.bot.create_chat_invite_link(
+                        chat_id=vip_channel_id,
+                        member_limit=1,
+                        expire_date=expire_date
+                    )
 
-                response_text = (
-                    f"🎉 ¡Felicidades! Has canjeado un token para la tarifa **{tier.name}**.\n\n"
-                    f"Aquí tienes tu enlace de invitación único para el canal VIP. Es válido solo para ti y expirará en {tier.duration_days} días.\n\n"
-                    f"➡️ **[UNIRSE AL CANAL VIP]({invite_link.invite_link})**"
-                )
-                await message.reply(response_text, parse_mode="Markdown")
+                    response_text = (
+                        f"🎉 ¡Felicidades! Has canjeado un token para la tarifa **{tier.name}**.\n\n"
+                        f"Aquí tienes tu enlace de invitación único para el canal VIP. Es válido solo para ti y expirará en {tier.duration_days} días.\n\n"
+                        f"➡️ **[UNIRSE AL CANAL VIP]({invite_link.invite_link})**"
+                    )
+                    await message.reply(response_text, parse_mode="Markdown")
+                except Exception as invite_error:
+                    # Handle cases where invite link creation fails (e.g., invalid channel ID, bot not admin)
+                    response_text = (
+                        f"✅ Token canjeado para la tarifa **{tier.name}** por {tier.duration_days} días.\n"
+                        f"Sin embargo, hubo un error al generar el enlace de invitación. "
+                        f"El ID del canal VIP puede ser incorrecto o el bot no tiene permisos. "
+                        f"Contacta a un administrador para acceso al canal VIP."
+                    )
+                    await message.reply(response_text)
             else:
                 await message.reply(f"❌ Error al canjear el token: {result['error']}")
 
