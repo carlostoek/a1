@@ -5,6 +5,7 @@ import uuid
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 from aiogram import Bot
+from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -246,7 +247,6 @@ class SubscriptionService:
             tier: The subscription tier that was redeemed
             session: Database session for getting bot config
         """
-        from aiogram.types import Message  # Import here to avoid circular import
 
         bot_config = await ConfigService.get_bot_config(session)
         vip_channel_id = bot_config.vip_channel_id
