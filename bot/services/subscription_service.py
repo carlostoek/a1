@@ -197,10 +197,16 @@ class SubscriptionService:
             subscriber = result.scalars().first()
             
             now = datetime.now(timezone.utc)
-            
+
             if subscriber:
                 # If subscription is expired, start new one from now. Otherwise, extend.
-                start_date = max(now, subscriber.expiry_date)
+                # Ensure subscriber.expiry_date is timezone-aware for comparison
+                existing_expiry = subscriber.expiry_date
+                if existing_expiry and existing_expiry.tzinfo is None:
+                    # Make it timezone-aware assuming it's in UTC
+                    existing_expiry = existing_expiry.replace(tzinfo=timezone.utc)
+
+                start_date = max(now, existing_expiry or now)
                 subscriber.expiry_date = start_date + timedelta(days=duration_days)
                 subscriber.status = "active"
                 subscriber.role = "vip"
