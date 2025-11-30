@@ -90,44 +90,7 @@ async def process_token_message(message: Message, session):
         if result["success"]:
             # Success: token was redeemed
             tier = result["tier"]
-            duration_days = tier.duration_days
-            bot_config = await ConfigService.get_bot_config(session)
-            vip_channel_id = bot_config.vip_channel_id
-
-            if not vip_channel_id:
-                response_text = (
-                    f"✅ Token canjeado, pero el canal VIP no está configurado. "
-                    f"Contacta a un administrador."
-                )
-                await message.reply(response_text)
-                return
-
-            # Calculate expiry date to include in message
-            expiry_date = datetime.now(timezone.utc) + timedelta(days=duration_days)
-
-            # Create a chat invite link for the VIP channel
-            try:
-                invite_link = await message.bot.create_chat_invite_link(
-                    chat_id=vip_channel_id,
-                    member_limit=1,  # Single use invite
-                    expire_date=expiry_date  # Expire when subscription expires
-                )
-
-                response_text = (
-                    f"🎉 ¡Felicidades! Has canjeado un token para la tarifa **{tier.name}**.\n\n"
-                    f"Aquí tienes tu enlace de invitación único para el canal VIP. "
-                    f"Es válido solo para ti y expirará en {duration_days} días.\n\n"
-                    f"➡️ **[UNIRSE AL CANAL VIP]({invite_link.invite_link})**"
-                )
-                await message.reply(response_text, parse_mode="Markdown")
-            except Exception as e:
-                # If invite link creation fails, inform the user
-                response_text = (
-                    f"✅ Token canjeado para la tarifa **{tier.name}** por {duration_days} días.\n"
-                    f"Sin embargo, hubo un error al generar el enlace de invitación. "
-                    f"Contacta a un administrador para acceso al canal VIP."
-                )
-                await message.reply(response_text)
+            await SubscriptionService.send_token_redemption_success(message, tier, session)
         else:
             # Error: token was invalid
             error = result["error"]

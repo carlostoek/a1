@@ -1,12 +1,14 @@
 """
 Service for managing channel requests and statistics.
 """
+import logging
 from typing import List, Dict, Any, Union
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
+from aiogram.exceptions import TelegramBadRequest
 from bot.database.models import FreeChannelRequest, UserSubscription, BotConfig
 from bot.services.exceptions import ServiceError
 from bot.services.config_service import ConfigService
@@ -149,8 +151,11 @@ class ChannelManagementService:
                 member = await bot.get_chat_member(chat_id=channel_id, user_id=bot.id)
                 if not member.status in ['administrator', 'creator']:
                     return {"success": False, "error": "El bot no es administrador o el canal no existe."}
-            except Exception:
-                return {"success": False, "error": "El bot no es administrador o el canal no existe."}
+            except TelegramBadRequest:
+                return {"success": False, "error": "El bot no es administrador, el canal no existe o el ID es incorrecto."}
+            except Exception as e:
+                logging.error(f"Error inesperado al verificar el canal {channel_id}: {e}")
+                return {"success": False, "error": f"Error inesperado: {e}"}
 
             # Update the bot configuration with the new channel ID
             config = await ConfigService.get_bot_config(session)

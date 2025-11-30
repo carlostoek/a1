@@ -127,36 +127,7 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
 
             if result["success"]:
                 tier = result["tier"]
-                bot_config = await ConfigService.get_bot_config(session)
-                vip_channel_id = bot_config.vip_channel_id
-
-                if not vip_channel_id:
-                    await message.reply("✅ Token canjeado, pero el canal VIP no está configurado. Contacta a un administrador.")
-                    return
-
-                expire_date = datetime.now(timezone.utc) + timedelta(days=tier.duration_days)
-                try:
-                    invite_link = await message.bot.create_chat_invite_link(
-                        chat_id=vip_channel_id,
-                        member_limit=1,
-                        expire_date=expire_date
-                    )
-
-                    response_text = (
-                        f"🎉 ¡Felicidades! Has canjeado un token para la tarifa **{tier.name}**.\n\n"
-                        f"Aquí tienes tu enlace de invitación único para el canal VIP. Es válido solo para ti y expirará en {tier.duration_days} días.\n\n"
-                        f"➡️ **[UNIRSE AL CANAL VIP]({invite_link.invite_link})**"
-                    )
-                    await message.reply(response_text, parse_mode="Markdown")
-                except Exception as invite_error:
-                    # Handle cases where invite link creation fails (e.g., invalid channel ID, bot not admin)
-                    response_text = (
-                        f"✅ Token canjeado para la tarifa **{tier.name}** por {tier.duration_days} días.\n"
-                        f"Sin embargo, hubo un error al generar el enlace de invitación. "
-                        f"El ID del canal VIP puede ser incorrecto o el bot no tiene permisos. "
-                        f"Contacta a un administrador para acceso al canal VIP."
-                    )
-                    await message.reply(response_text)
+                await SubscriptionService.send_token_redemption_success(message, tier, session)
             else:
                 await message.reply(f"❌ Error al canjear el token: {result['error']}")
 
@@ -487,7 +458,7 @@ async def setup_channel_start(callback_query: CallbackQuery, state: FSMContext):
 
 # Message handler for channel ID or forwarded message
 @admin_router.message(ChannelSetupStates.waiting_channel_id_or_forward)
-async def process_channel_input(message: Message, state: FSMContext, session: AsyncSession, bot):
+async def process_channel_input(message: Message, state: FSMContext, session: AsyncSession):
     """Process channel ID input (either manual ID or forwarded message)."""
     # Manual admin authentication check
     user_id = message.from_user.id
@@ -498,7 +469,11 @@ async def process_channel_input(message: Message, state: FSMContext, session: As
 
     # Get the channel type from FSM data
     data = await state.get_data()
-    channel_type = data.get("channel_type", "unknown")
+    channel_type = data.get("channel_type")
+    if not channel_type:
+        await message.reply("❌ Error interno. No se pudo determinar el tipo de canal. Por favor, intenta de nuevo desde el menú de configuración.")
+        await state.clear()
+        return
 
     channel_id = None
 
@@ -518,7 +493,7 @@ async def process_channel_input(message: Message, state: FSMContext, session: As
     result = await ChannelManagementService.register_channel_id(
         channel_type=channel_type,
         raw_id=channel_id,
-        bot=bot,
+        bot=message.bot,
         session=session
     )
 
