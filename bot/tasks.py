@@ -109,19 +109,8 @@ class BackgroundTaskManager:
 
                             if free_channel_id:
                                 try:
-                                    # Create invite link for the free channel
-                                    invite_link = await bot.create_chat_invite_link(
-                                        chat_id=free_channel_id,
-                                        member_limit=1  # Single-use link
-                                    )
-
-                                    # Send the invite link to the user
-                                    await bot.send_message(
-                                        chat_id=request.user_id,
-                                        text=f"✅ ¡Tu espera terminó! Entra aquí: {invite_link.invite_link}"
-                                    )
-
-                                    # Send a welcome message after giving access
+                                    # For free channel access, just send the welcome message
+                                    # Users will already have access to the channel after admin approval
                                     welcome_text = "🎉 ¡Bienvenido al canal gratuito!"
                                     await bot.send_message(
                                         chat_id=request.user_id,
@@ -133,11 +122,11 @@ class BackgroundTaskManager:
                                     request.processed_at = datetime.now(timezone.utc)
                                     await session.commit()
 
-                                    logger.info(f"Sent invite link to user {request.user_id}")
+                                    logger.info(f"Sent welcome message to user {request.user_id}")
                                 except Exception as e:
                                     # If user blocked the bot or other error, mark as processed anyway
                                     # to avoid retrying forever
-                                    logger.error(f"Could not send invite to user {request.user_id}: {e}")
+                                    logger.error(f"Could not send welcome message to user {request.user_id}: {e}")
 
                                     # Mark as processed to avoid retrying
                                     request.processed = True
