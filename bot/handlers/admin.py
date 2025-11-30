@@ -15,7 +15,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
-from bot.states import SubscriptionTierStates, ChannelSetupStates, FreeConfigStates
+from bot.states import SubscriptionTierStates, ChannelSetupStates, FreeConfigStates, ReactionSetupStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 from bot.utils.ui import MenuFactory
@@ -454,6 +454,53 @@ async def admin_config(callback_query: CallbackQuery):
     )
 
 
+@admin_router.callback_query(F.data == "vip_config")
+async def admin_vip_config(callback_query: CallbackQuery):
+    """Show VIP configuration options using MenuFactory."""
+    # Define VIP configuration options
+    vip_config_options = [
+        ("📊 Ver Stats", "vip_stats"),
+        ("💄 Configurar Reacciones", "vip_config_reactions"),
+    ]
+
+    menu_data = MenuFactory.create_menu(
+        title="Configuración VIP",
+        options=vip_config_options,
+        back_callback="admin_vip",
+        has_main=True
+    )
+
+    await safe_edit_message(
+        callback_query,
+        menu_data['text'],
+        menu_data['markup']
+    )
+
+
+@admin_router.callback_query(F.data == "free_config")
+async def admin_free_config(callback_query: CallbackQuery):
+    """Show Free configuration options using MenuFactory."""
+    # Define Free configuration options
+    free_config_options = [
+        ("📊 Ver Stats", "free_stats"),
+        ("💄 Configurar Reacciones", "free_config_reactions"),
+        ("⏱️ Configurar Tiempo de Espera", "free_wait_time_config"),
+    ]
+
+    menu_data = MenuFactory.create_menu(
+        title="Configuración Free",
+        options=free_config_options,
+        back_callback="admin_free",
+        has_main=True
+    )
+
+    await safe_edit_message(
+        callback_query,
+        menu_data['text'],
+        menu_data['markup']
+    )
+
+
 @admin_router.callback_query(F.data == "config_tiers")
 async def manage_tiers_menu(callback_query: CallbackQuery, session: AsyncSession):
     """Display a paginated list of all active subscription tiers."""
@@ -575,6 +622,99 @@ async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession)
     keyboard.adjust(1)
 
     await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
+
+
+# Callback handlers for reaction configuration
+@admin_router.callback_query(F.data == "vip_config_reactions")
+async def setup_reactions_start_vip(callback_query: CallbackQuery, state: FSMContext):
+    """Start the reaction setup flow for VIP channel."""
+    # Store the channel type in FSM context
+    await state.update_data(channel_type="vip")
+
+    # Set the state to wait for reactions input
+    await state.set_state(ReactionSetupStates.waiting_reactions_input)
+
+    # Respond with instructions using safe_edit_message
+    instructions = (f"💋 Configuración de Reacciones Inline VIP\n"
+                   f"Envía la lista de emojis permitidos separados por coma (ej: 👍, 🔥, 🚀). "
+                   f"Se usarán como botones de interacción en las publicaciones.")
+
+    await safe_edit_message(
+        callback_query,
+        instructions,
+        reply_markup=None  # No additional buttons for this message
+    )
+
+
+@admin_router.callback_query(F.data == "free_config_reactions")
+async def setup_reactions_start_free(callback_query: CallbackQuery, state: FSMContext):
+    """Start the reaction setup flow for Free channel."""
+    # Store the channel type in FSM context
+    await state.update_data(channel_type="free")
+
+    # Set the state to wait for reactions input
+    await state.set_state(ReactionSetupStates.waiting_reactions_input)
+
+    # Respond with instructions using safe_edit_message
+    instructions = (f"💋 Configuración de Reacciones Inline Free\n"
+                   f"Envía la lista de emojis permitidos separados por coma (ej: 👍, 🔥, 🚀). "
+                   f"Se usarán como botones de interacción en las publicaciones.")
+
+    await safe_edit_message(
+        callback_query,
+        instructions,
+        reply_markup=None  # No additional buttons for this message
+    )
+
+
+# Message handler for processing reactions input
+@admin_router.message(ReactionSetupStates.waiting_reactions_input)
+async def process_reactions_input(message: Message, state: FSMContext, session: AsyncSession):
+    """Process the input of reaction emojis."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    # Get the channel type from FSM data
+    data = await state.get_data()
+    channel_type = data.get("channel_type", "unknown")
+
+    if not channel_type or channel_type not in ["vip", "free"]:
+        await message.reply("❌ Error interno. No se pudo determinar el tipo de canal. Por favor, intenta de nuevo.")
+        await state.clear()
+        return
+
+    # Call the ConfigService to save reactions
+    result = await ConfigService.setup_reactions(
+        channel_type=channel_type,
+        reactions_str=message.text,
+        session=session
+    )
+
+    if result["success"]:
+        # Success: show list of reactions that were saved
+        reactions_list = result["reactions"]
+        response_text = f"✅ Reacciones guardadas. Lista: {', '.join(reactions_list)}."
+        await message.reply(response_text)
+
+        # Clear the state
+        await state.clear()
+
+        # Return to the corresponding configuration menu
+        if channel_type == "vip":
+            await admin_vip(message, session)
+        else:  # free
+            await admin_free(message)
+    else:
+        # Error: show error message
+        error = result["error"]
+        await message.reply(f"❌ Error al guardar reacciones: {error}")
+
+        # Clear the state
+        await state.clear()
 
 
 # Callback handlers for channel configuration

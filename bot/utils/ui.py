@@ -84,3 +84,26 @@ class MenuFactory:
             dict: {'text': str, 'markup': InlineKeyboardMarkup}
         """
         return cls.create_menu(title, options, has_main=False)
+
+    @classmethod
+    def create_reaction_keyboard(cls, channel_type: str, reactions_list: List[str]) -> InlineKeyboardMarkup:
+        """
+        Create an inline keyboard with reaction buttons for posts.
+
+        Args:
+            channel_type: 'vip' or 'free' channel type
+            reactions_list: List of emojis to use as reaction buttons
+
+        Returns:
+            InlineKeyboardMarkup with reaction buttons
+        """
+        # Create buttons in a single row for reactions
+        row = []
+        for emoji in reactions_list:
+            # CRÍTICO: Formato de Callback Data
+            callback_data = f"react_{channel_type}_{emoji}"
+            button = cls._create_button(emoji, callback_data)
+            row.append(button)
+
+        # Return markup with buttons in a single row
+        return InlineKeyboardMarkup(inline_keyboard=[row])
