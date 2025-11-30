@@ -18,10 +18,11 @@ class MenuFactory:
         return InlineKeyboardButton(text=text, callback_data=callback_data)
 
     @classmethod
-    def create_menu(cls, 
-                    title: str, 
-                    options: List[Tuple[str, str]], 
-                    has_back: bool = True, 
+    def create_menu(cls,
+                    title: str,
+                    options: List[Tuple[str, str]],
+                    description: Optional[str] = None,
+                    back_callback: Optional[str] = None,
                     has_main: bool = True) -> Dict[str, Any]:
         """
         Genera un menú estandarizado.
@@ -29,7 +30,8 @@ class MenuFactory:
         Args:
             title: Título del menú.
             options: Lista de tuplas (Texto del botón, Callback data).
-            has_back: Incluir botón 'Volver' (callback 'admin_back').
+            description: Texto opcional para mostrar sobre el título del menú.
+            back_callback: Callback data para el botón 'Volver'. Si es None, no se muestra.
             has_main: Incluir botón 'Menú Principal' (callback 'admin_main_menu').
 
         Returns:
@@ -37,9 +39,9 @@ class MenuFactory:
         """
         # Lógica de construcción
         keyboard = []
-        
+
         # 1. Botones de opciones
-        # Agrupar las opciones en filas lógicas (ej: 2 por fila, si son más de 4)
+        # Agrupar las opciones en filas lógicas (ej: 2 por fila)
         for i in range(0, len(options), 2):
             row = []
             for text, data in options[i:i+2]:
@@ -49,17 +51,21 @@ class MenuFactory:
 
         # 2. Botones de Navegación Estandar
         nav_row = []
-        if has_back:
-            nav_row.append(cls._create_button("⬅️ Volver", "admin_back"))
+        if back_callback:
+            nav_row.append(cls._create_button("⬅️ Volver", back_callback))
         if has_main:
             nav_row.append(cls._create_button("🏠 Principal", "admin_main_menu"))
-        
+
         if nav_row:
             keyboard.append(nav_row)
 
         # Retorno estandarizado
+        menu_text = f"**{title.upper()}**\n\nSelecciona una opción:"
+        if description:
+            menu_text = f"{description}\n\n{menu_text}"
+
         return {
-            'text': f"**{title.upper()}**\n\nSelecciona una opción:",
+            'text': menu_text,
             'markup': InlineKeyboardMarkup(inline_keyboard=keyboard)
         }
 
@@ -68,13 +74,13 @@ class MenuFactory:
                           title: str,
                           options: List[Tuple[str, str]]) -> Dict[str, Any]:
         """
-        Creates a simple menu without navigation buttons.
-        
+        Crea un menú simple sin botones de navegación.
+
         Args:
-            title: Title of the menu
-            options: List of tuples (Button text, Callback data)
-            
+            title: Título del menú.
+            options: Lista de tuplas (Texto del botón, Callback data).
+
         Returns:
             dict: {'text': str, 'markup': InlineKeyboardMarkup}
         """
-        return cls.create_menu(title, options, has_back=False, has_main=False)
+        return cls.create_menu(title, options, has_main=False)

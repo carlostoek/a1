@@ -150,11 +150,12 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
         menu_data = MenuFactory.create_menu(
             title="Menú Principal de Administración",
             options=main_options,
-            has_back=False,  # Command start doesn't have back button
+            description=welcome_text,  # Use welcome text as description
+            back_callback=None,  # Command start doesn't have back button
             has_main=False   # Command start doesn't have main button (it IS the main)
         )
 
-        await message.answer(welcome_text + "\n\n" + menu_data['text'], reply_markup=menu_data['markup'])
+        await message.answer(menu_data['text'], reply_markup=menu_data['markup'])
 
     else:
         # Generic user welcome
@@ -180,7 +181,7 @@ async def admin_main_menu(callback_query: CallbackQuery):
     menu_data = MenuFactory.create_menu(
         title="Menú Principal de Administración",
         options=main_options,
-        has_back=False,  # Main menu doesn't have back button
+        back_callback=None,  # Main menu doesn't have back button
         has_main=False   # Main menu doesn't have main button
     )
 
@@ -195,14 +196,11 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     """Edit message to show VIP menu using MenuFactory."""
     tiers = await ConfigService.get_all_tiers(session)
 
-    # Build VIP menu options
-    options = []
-    if tiers:
-        for tier in tiers:
-            options.append((f"🎟️ Generar Token ({tier.name})", f"token_generate_{tier.id}"))
-    else:
-        # If no tiers, just show placeholder or skip token generation
-        pass
+    # Build VIP menu options using list comprehension
+    options = [
+        (f"🎟️ Generar Token ({tier.name})", f"token_generate_{tier.id}")
+        for tier in tiers
+    ]
 
     # Add additional VIP options
     options.extend([
@@ -210,16 +208,18 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         ("⚙️ Configurar", "vip_config"),
     ])
 
+    # Check if there are no tiers and add appropriate description
+    description = None
+    if not tiers:
+        description = "❌ No hay tarifas de suscripción activas. Por favor, configure una tarifa primero."
+
     menu_data = MenuFactory.create_menu(
         title="Menú VIP",
         options=options,
-        has_back=True,
+        description=description,
+        back_callback="admin_main_menu",
         has_main=True
     )
-
-    # Add info if no tiers available
-    if not tiers:
-        menu_data['text'] += "\n\n❌ No hay tarifas de suscripción activas. Por favor, configure una tarifa primero."
 
     await safe_edit_message(
         callback_query,
@@ -239,7 +239,7 @@ async def admin_free(callback_query: CallbackQuery):
     menu_data = MenuFactory.create_menu(
         title="Menú Free",
         options=free_options,
-        has_back=True,
+        back_callback="admin_main_menu",
         has_main=True
     )
 
@@ -257,8 +257,8 @@ async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
         stats = await ChannelManagementService.get_channel_stats(session, "vip")
         free_stats = await ChannelManagementService.get_channel_stats(session, "general")
 
-        # Create stats info as part of the menu text
-        stats_info = (
+        # Create stats info as description
+        stats_description = (
             f"📊 Estadísticas del Bot:\n\n"
             f"Usuarios VIP activos: {stats['active_subscribers']}\n"
             f"Solicitudes Free: {free_stats['total_requests']}\n"
@@ -273,12 +273,10 @@ async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
         menu_data = MenuFactory.create_menu(
             title="Estadísticas",
             options=stats_options,
-            has_back=True,
+            description=stats_description,
+            back_callback="admin_main_menu",
             has_main=True
         )
-
-        # Format the menu text to include stats info and keep navigation
-        menu_data['text'] = f"{stats_info}\n\n**ESTADÍSTICAS**\n\nSelecciona una opción:"
 
         await safe_edit_message(callback_query, menu_data['text'], menu_data['markup'])
     except ServiceError:
@@ -445,7 +443,7 @@ async def admin_config(callback_query: CallbackQuery):
     menu_data = MenuFactory.create_menu(
         title="Configuración General",
         options=config_options,
-        has_back=True,
+        back_callback="admin_main_menu",
         has_main=True
     )
 
@@ -579,19 +577,6 @@ async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession)
     await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
 
 
-# Handler for back navigation
-@admin_router.callback_query(F.data == "admin_back")
-async def admin_back_handler(callback_query: CallbackQuery):
-    """
-    Handle 'back' navigation.
-    Simplified approach: navigate to the immediately higher menu.
-    For now, we'll map back to known parent menus based on context.
-    """
-    # For now, implement simplified navigation by redirecting to main menu
-    # In a more complex system, you would maintain a navigation stack
-    await admin_main_menu(callback_query)
-
-
 # Callback handlers for channel configuration
 @admin_router.callback_query(F.data == "config_channels_menu")
 async def config_channels_menu(callback_query: CallbackQuery):
@@ -605,7 +590,7 @@ async def config_channels_menu(callback_query: CallbackQuery):
     menu_data = MenuFactory.create_menu(
         title="Configuración de Canales",
         options=channel_options,
-        has_back=True,
+        back_callback="admin_config",  # Go back to config menu
         has_main=True
     )
 
