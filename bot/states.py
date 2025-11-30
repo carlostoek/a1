@@ -19,3 +19,7 @@ class SubscriptionTierStates(StatesGroup):
     waiting_tier_duration = State() # Duración en DÍAS
     waiting_tier_price = State()    # Precio Float
     waiting_tier_selection = State() # Para edición/eliminación
+
+
+class FreeConfigStates(StatesGroup):
+    waiting_wait_time_minutes = State()

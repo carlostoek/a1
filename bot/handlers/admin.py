@@ -15,7 +15,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
-from bot.states import SubscriptionTierStates, ChannelSetupStates
+from bot.states import SubscriptionTierStates, ChannelSetupStates, FreeConfigStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 
@@ -276,13 +276,75 @@ async def free_stats(callback_query: CallbackQuery, session: AsyncSession):
 
 
 @admin_router.callback_query(F.data == "free_config")
-async def free_config(callback_query: CallbackQuery):
-    """Show Free configuration options (to be implemented)."""
+async def free_config(callback_query: CallbackQuery, session: AsyncSession):
+    """Show Free configuration options."""
+    config = await ConfigService.get_bot_config(session)
+    current_wait_time = config.wait_time_minutes
+
+    text = f"Configuración Free\n\nTiempo de espera actual: {current_wait_time} minutos"
+
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="⏱️ Configurar Tiempo de Espera", callback_data="free_wait_time_config")
+    keyboard.button(text="Volver", callback_data="admin_free")
+    keyboard.adjust(1)
+
     await safe_edit_message(
         callback_query,
-        "Configuración Free\n(En desarrollo)",
-        reply_markup=get_free_menu_kb()
+        text,
+        reply_markup=keyboard.as_markup()
     )
+
+
+# Callback handlers for free configuration
+@admin_router.callback_query(F.data == "free_wait_time_config")
+async def start_free_wait_time_config(callback_query: CallbackQuery, state: FSMContext):
+    """Start the FSM flow to configure free channel wait time."""
+    await state.set_state(FreeConfigStates.waiting_wait_time_minutes)
+    await safe_edit_message(
+        callback_query,
+        "⏱️ Configuración de Tiempo de Espera\n\n"
+        "Por favor, introduce el tiempo de espera en minutos (ej: 60, 1440 para 1 día, 10080 para 1 semana):"
+    )
+
+
+# Message handler for wait time input
+@admin_router.message(FreeConfigStates.waiting_wait_time_minutes)
+async def process_free_wait_time(message: Message, state: FSMContext, session: AsyncSession):
+    """Process the wait time input and update the configuration."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    try:
+        wait_time_minutes = int(message.text)
+
+        if wait_time_minutes < 0:
+            await message.reply("❌ El tiempo de espera no puede ser negativo. Introduce un valor positivo en minutos.")
+            return
+
+        # Update the configuration in the database
+        updated_config = await ConfigService.update_config(
+            session,
+            "wait_time_minutes",
+            wait_time_minutes
+        )
+
+        # Clear the FSM state
+        await state.clear()
+
+        # Confirm the update to the admin
+        await message.reply(f"✅ Tiempo de espera actualizado a {wait_time_minutes} minutos.")
+
+    except ValueError:
+        await message.reply("❌ Por favor, introduce un número válido de minutos (ej: 60, 1440, 10080).")
+    except Exception as e:
+        # Escape special characters in the error message to avoid Telegram parsing issues
+        error_msg = str(e).replace('<', '\\<').replace('>', '\\>')
+        await message.reply(f"❌ Error al actualizar la configuración: {error_msg}")
+        await state.clear()
 
 
 # Callback handlers for main menu options

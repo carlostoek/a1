@@ -42,39 +42,12 @@ def looks_like_token(text: str) -> bool:
     return False
 
 
-@user_router.message(Command("free"))
-async def cmd_free_access(message: Message, session):
-    """
-    Handle user request for free channel access.
-    Process: Call ChannelService.request_free_access and respond appropriately.
-    """
-    user_id = message.from_user.id
-
-    # Request free channel access
-    result = await ChannelManagementService.request_free_access(session, user_id)
-
-    if result["status"] == "already_requested":
-        wait_minutes = result["wait_minutes"]
-        remaining_minutes = result["remaining_minutes"]
-        response_text = (
-            f"⏳ Ya tienes una solicitud pendiente.\n"
-            f"Tiempo restante: {max(0, remaining_minutes)} minutos de {wait_minutes} minutos de espera."
-        )
-    elif result["status"] == "queued":
-        wait_minutes = result["wait_minutes"]
-        response_text = (
-            f"⏳ Solicitud recibida.\n"
-            f"Para evitar spam, debes esperar <b>{wait_minutes} minutos</b>.\n"
-            f"El bot te enviará el enlace automáticamente cuando pase el tiempo. ¡No bloquees al bot!"
-        )
-
-    await message.reply(response_text)
 
 
 @user_router.message(~F.text.startswith('/'))  # Only process non-command messages
-async def process_token_message(message: Message, session):
+async def process_user_message(message: Message, session):
     """
-    Process messages that might contain tokens.
+    Process user messages - could be tokens or requests for free access.
     Trigger: Any text message that is not a command.
     """
     if not message.text:
@@ -97,6 +70,22 @@ async def process_token_message(message: Message, session):
             response_text = f"❌ Token inválido o expirado. Motivo: {error}"
             await message.reply(response_text)
     else:
-        # Text doesn't look like a token, ignore or provide help message
-        # For now, we'll ignore non-token-like messages so they don't interfere with admin functions
-        pass
+        # Text doesn't look like a token, treat as a request for free channel access
+        # This handles users who arrive and interact with the bot for the first time
+        result = await ChannelManagementService.request_free_access(session, message.from_user.id)
+
+        if result["status"] == "already_requested":
+            wait_minutes = result["wait_minutes"]
+            remaining_minutes = result["remaining_minutes"]
+            response_text = (
+                f"⏳ Ya tienes una solicitud pendiente.\n"
+                f"Tiempo restante: {max(0, remaining_minutes)} minutos de {wait_minutes} minutos de espera."
+            )
+            await message.reply(response_text)
+        elif result["status"] == "queued":
+            wait_minutes = result["wait_minutes"]
+            response_text = (
+                f"⏳ Tu tiempo de espera es {wait_minutes} minutos.\n"
+                f"El bot te enviará el enlace automáticamente cuando pase el tiempo. ¡No bloquees al bot!"
+            )
+            await message.reply(response_text)

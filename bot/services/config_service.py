@@ -57,7 +57,16 @@ class ConfigService:
         Update a specific configuration field and return the updated config.
         """
         try:
-            config = await cls.get_bot_config(session)
+            # Get the config without using cache to avoid session conflicts
+            result = await session.execute(select(BotConfig))
+            config = result.scalars().first()
+
+            # If no config exists, create one with defaults
+            if config is None:
+                config = BotConfig()
+                session.add(config)
+                await session.commit()
+                await session.refresh(config)
 
             # Update the specified field
             if hasattr(config, field):
@@ -67,7 +76,6 @@ class ConfigService:
 
             # Commit the changes to the database
             await session.commit()
-            await session.refresh(config)
 
             # Update the cached config
             cls._config_cache = config
