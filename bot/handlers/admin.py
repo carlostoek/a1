@@ -18,6 +18,7 @@ from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.states import SubscriptionTierStates, ChannelSetupStates, FreeConfigStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
+from bot.utils.ui import MenuFactory
 
 # Create router and apply middlewares
 admin_router = Router()
@@ -137,7 +138,23 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
     elif is_admin:
         # Admin menu flow
         welcome_text = "Bienvenido al Panel de Administración del Bot."
-        await message.answer(welcome_text, reply_markup=get_main_menu_kb())
+
+        # Use MenuFactory for consistency
+        main_options = [
+            ("💎 Gestión VIP", "admin_vip"),
+            ("🆓 Gestión Free", "admin_free"),
+            ("⚙️ Configuración", "admin_config"),
+            ("📊 Estadísticas", "admin_stats"),
+        ]
+
+        menu_data = MenuFactory.create_menu(
+            title="Menú Principal de Administración",
+            options=main_options,
+            has_back=False,  # Command start doesn't have back button
+            has_main=False   # Command start doesn't have main button (it IS the main)
+        )
+
+        await message.answer(welcome_text + "\n\n" + menu_data['text'], reply_markup=menu_data['markup'])
 
     else:
         # Generic user welcome
@@ -150,52 +167,120 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
 # Navigation callback handlers
 @admin_router.callback_query(F.data == "admin_main_menu")
 async def admin_main_menu(callback_query: CallbackQuery):
-    """Edit message to show main menu."""
+    """Edit message to show main menu using MenuFactory."""
+    # Define main menu options
+    main_options = [
+        ("💎 Gestión VIP", "admin_vip"),
+        ("🆓 Gestión Free", "admin_free"),
+        ("⚙️ Configuración", "admin_config"),
+        ("📊 Estadísticas", "admin_stats"),
+    ]
+
+    # Generate menu using factory
+    menu_data = MenuFactory.create_menu(
+        title="Menú Principal de Administración",
+        options=main_options,
+        has_back=False,  # Main menu doesn't have back button
+        has_main=False   # Main menu doesn't have main button
+    )
+
     await safe_edit_message(
         callback_query,
-        "Menú Principal - Panel de Administración",
-        reply_markup=get_main_menu_kb()
+        menu_data['text'],
+        menu_data['markup']
     )
 
 @admin_router.callback_query(F.data == "admin_vip")
 async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
-    """Edit message to show VIP menu."""
+    """Edit message to show VIP menu using MenuFactory."""
     tiers = await ConfigService.get_all_tiers(session)
-    text = "Menú VIP"
+
+    # Build VIP menu options
+    options = []
+    if tiers:
+        for tier in tiers:
+            options.append((f"🎟️ Generar Token ({tier.name})", f"token_generate_{tier.id}"))
+    else:
+        # If no tiers, just show placeholder or skip token generation
+        pass
+
+    # Add additional VIP options
+    options.extend([
+        ("📊 Ver Stats", "vip_stats"),
+        ("⚙️ Configurar", "vip_config"),
+    ])
+
+    menu_data = MenuFactory.create_menu(
+        title="Menú VIP",
+        options=options,
+        has_back=True,
+        has_main=True
+    )
+
+    # Add info if no tiers available
     if not tiers:
-        text += "\n\n❌ No hay tarifas de suscripción activas. Por favor, configure una tarifa primero."
-        
+        menu_data['text'] += "\n\n❌ No hay tarifas de suscripción activas. Por favor, configure una tarifa primero."
+
     await safe_edit_message(
         callback_query,
-        text,
-        reply_markup=await get_vip_menu_kb(session)
+        menu_data['text'],
+        menu_data['markup']
     )
 
 @admin_router.callback_query(F.data == "admin_free")
 async def admin_free(callback_query: CallbackQuery):
-    """Edit message to show Free menu."""
+    """Edit message to show Free menu using MenuFactory."""
+    # Define free menu options
+    free_options = [
+        ("📊 Ver Stats", "free_stats"),
+        ("⚙️ Configurar", "free_config"),
+    ]
+
+    menu_data = MenuFactory.create_menu(
+        title="Menú Free",
+        options=free_options,
+        has_back=True,
+        has_main=True
+    )
+
     await safe_edit_message(
         callback_query,
-        "Menú Free",
-        reply_markup=get_free_menu_kb()
+        menu_data['text'],
+        menu_data['markup']
     )
 
 @admin_router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
-    """Show stats summary using ChannelManagementService."""
+    """Show stats summary using ChannelManagementService and MenuFactory."""
     try:
         # Get channel stats
         stats = await ChannelManagementService.get_channel_stats(session, "vip")
         free_stats = await ChannelManagementService.get_channel_stats(session, "general")
 
-        stats_message = (
+        # Create stats info as part of the menu text
+        stats_info = (
             f"📊 Estadísticas del Bot:\n\n"
             f"Usuarios VIP activos: {stats['active_subscribers']}\n"
             f"Solicitudes Free: {free_stats['total_requests']}\n"
             f"Solicitudes pendientes: {free_stats['pending_requests']}"
         )
 
-        await safe_edit_message(callback_query, stats_message, reply_markup=get_main_menu_kb())
+        # Create simple menu with just navigation options
+        stats_options = [
+            ("🔄 Actualizar", "admin_stats"),  # Refresh stats
+        ]
+
+        menu_data = MenuFactory.create_menu(
+            title="Estadísticas",
+            options=stats_options,
+            has_back=True,
+            has_main=True
+        )
+
+        # Format the menu text to include stats info and keep navigation
+        menu_data['text'] = f"{stats_info}\n\n**ESTADÍSTICAS**\n\nSelecciona una opción:"
+
+        await safe_edit_message(callback_query, menu_data['text'], menu_data['markup'])
     except ServiceError:
         await callback_query.answer('Ocurrió un error al obtener las estadísticas.', show_alert=True)
 
@@ -350,11 +435,24 @@ async def process_free_wait_time(message: Message, state: FSMContext, session: A
 # Callback handlers for main menu options
 @admin_router.callback_query(F.data == "admin_config")
 async def admin_config(callback_query: CallbackQuery):
-    """Show general configuration options."""
+    """Show general configuration options using MenuFactory."""
+    # Define configuration menu options
+    config_options = [
+        ("💳 Gestionar Tarifas", "config_tiers"),
+        ("⚙️ Configurar Canales", "config_channels_menu"),
+    ]
+
+    menu_data = MenuFactory.create_menu(
+        title="Configuración General",
+        options=config_options,
+        has_back=True,
+        has_main=True
+    )
+
     await safe_edit_message(
         callback_query,
-        "Configuración General",
-        reply_markup=get_config_menu_kb()
+        menu_data['text'],
+        menu_data['markup']
     )
 
 
@@ -481,14 +579,40 @@ async def edit_tier_select(callback_query: CallbackQuery, session: AsyncSession)
     await safe_edit_message(callback_query, text, reply_markup=keyboard.as_markup())
 
 
+# Handler for back navigation
+@admin_router.callback_query(F.data == "admin_back")
+async def admin_back_handler(callback_query: CallbackQuery):
+    """
+    Handle 'back' navigation.
+    Simplified approach: navigate to the immediately higher menu.
+    For now, we'll map back to known parent menus based on context.
+    """
+    # For now, implement simplified navigation by redirecting to main menu
+    # In a more complex system, you would maintain a navigation stack
+    await admin_main_menu(callback_query)
+
+
 # Callback handlers for channel configuration
 @admin_router.callback_query(F.data == "config_channels_menu")
 async def config_channels_menu(callback_query: CallbackQuery):
-    """Display channel configuration menu."""
+    """Display channel configuration menu using MenuFactory."""
+    # Define channel configuration options
+    channel_options = [
+        ("Canal VIP", "setup_vip_select"),
+        ("Canal Free", "setup_free_select"),
+    ]
+
+    menu_data = MenuFactory.create_menu(
+        title="Configuración de Canales",
+        options=channel_options,
+        has_back=True,
+        has_main=True
+    )
+
     await safe_edit_message(
         callback_query,
-        "⚙️ Configuración de Canales",
-        reply_markup=get_channels_config_kb()
+        menu_data['text'],
+        menu_data['markup']
     )
 
 
