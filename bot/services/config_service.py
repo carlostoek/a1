@@ -2,7 +2,7 @@
 Service for managing bot configuration settings.
 """
 import asyncio
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -158,6 +158,52 @@ class ConfigService:
             return True
         except SQLAlchemyError as e:
             raise ConfigError(f"Error deleting subscription tier: {str(e)}")
+
+    @classmethod
+    async def update_wait_time(cls, minutes: Union[int, str], session: AsyncSession) -> dict:
+        """
+        Parse, validate, and update the wait time configuration.
+
+        Args:
+            minutes: Number of minutes to wait (as int or string)
+            session: Database session
+
+        Returns:
+            dict: Operation result with success status and saved value
+        """
+        try:
+            # Convert minutes to integer and validate it's positive
+            minutes_int = int(minutes)
+            if minutes_int < 0:
+                return {
+                    "success": False,
+                    "error": "El tiempo de espera no puede ser negativo. Por favor, introduce un número entero positivo."
+                }
+
+            # Get the bot configuration
+            config = await cls.get_bot_config(session)
+
+            # Update the wait time minutes field
+            config.wait_time_minutes = minutes_int
+
+            # Commit the changes to the database
+            await session.commit()
+
+            return {
+                "success": True,
+                "wait_time_minutes": minutes_int
+            }
+        except ValueError:
+            return {
+                "success": False,
+                "error": "Entrada inválida. Por favor, introduce solo un número entero positivo para los minutos."
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Error guardando el tiempo de espera: {str(e)}"
+            }
 
     @classmethod
     async def setup_reactions(cls, channel_type: str, reactions_str: str, session: AsyncSession) -> List[str]:
