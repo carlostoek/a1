@@ -4,7 +4,13 @@ Contains standardized components for creating menus and UI elements.
 """
 from typing import List, Tuple, Dict, Any, Optional
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.filters.callback_data import CallbackData
 
+
+class ReactionCallback(CallbackData, prefix="react"):
+    """Callback data for reaction buttons"""
+    channel_type: str
+    emoji: str
 
 class MenuFactory:
     """
@@ -100,9 +106,9 @@ class MenuFactory:
         # Create buttons in a single row for reactions
         row = []
         for emoji in reactions_list:
-            # CRÍTICO: Formato de Callback Data
-            callback_data = f"react_{channel_type}_{emoji}"
-            button = cls._create_button(emoji, callback_data)
+            # Use ReactionCallback instead of manual string formatting
+            callback_obj = ReactionCallback(channel_type=channel_type, emoji=emoji)
+            button = cls._create_button(emoji, callback_obj.pack())
             row.append(button)
 
         # Return markup with buttons in a single row

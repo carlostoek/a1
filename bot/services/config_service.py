@@ -160,9 +160,9 @@ class ConfigService:
             raise ConfigError(f"Error deleting subscription tier: {str(e)}")
 
     @classmethod
-    async def setup_reactions(cls, channel_type: str, reactions_str: str, session: AsyncSession) -> dict:
+    async def setup_reactions(cls, channel_type: str, reactions_str: str, session: AsyncSession) -> List[str]:
         """
-        Parse and store emoji reactions for a specific channel type.
+        Parse, validate, and store emoji reactions for a specific channel type.
 
         Args:
             channel_type: 'vip' or 'free'
@@ -170,43 +170,31 @@ class ConfigService:
             session: Database session
 
         Returns:
-            dict: Operation result with success status and saved list
+            List of saved emojis.
+
+        Raises:
+            ValueError: If input is invalid (e.g., too many emojis, invalid channel type).
+            ConfigError: On database errors.
         """
         try:
-            # Parse the reactions string
             reactions_list = [e.strip() for e in reactions_str.split(',') if e.strip()]
 
-            # Validate: limit to maximum of 10 emojis
             if len(reactions_list) > 10:
-                return {
-                    "success": False,
-                    "error": "Número máximo de reacciones excedido (máximo 10 emojis)."
-                }
+                raise ValueError("Número máximo de reacciones excedido (máximo 10 emojis).")
 
-            # Get the bot configuration
+            if channel_type not in ['vip', 'free']:
+                raise ValueError("Tipo de canal inválido. Use 'vip' o 'free'.")
+
             config = await cls.get_bot_config(session)
 
-            # Store the list as JSON based on channel type
             if channel_type == 'vip':
                 config.vip_reactions = reactions_list
-            elif channel_type == 'free':
+            else:  # 'free'
                 config.free_reactions = reactions_list
-            else:
-                return {
-                    "success": False,
-                    "error": "Tipo de canal inválido. Use 'vip' o 'free'."
-                }
 
-            # Commit the changes to the database
             await session.commit()
 
-            return {
-                "success": True,
-                "reactions": reactions_list
-            }
+            return reactions_list
         except SQLAlchemyError as e:
             await session.rollback()
-            return {
-                "success": False,
-                "error": f"Error guardando reacciones: {str(e)}"
-            }
+            raise ConfigError(f"Error guardando reacciones: {str(e)}")
