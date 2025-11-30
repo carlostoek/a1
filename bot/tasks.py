@@ -121,6 +121,13 @@ class BackgroundTaskManager:
                                         text=f"✅ ¡Tu espera terminó! Entra aquí: {invite_link.invite_link}"
                                     )
 
+                                    # Send a welcome message after giving access
+                                    welcome_text = "🎉 ¡Bienvenido al canal gratuito!"
+                                    await bot.send_message(
+                                        chat_id=request.user_id,
+                                        text=welcome_text
+                                    )
+
                                     # Mark as processed
                                     request.processed = True
                                     request.processed_at = datetime.now(timezone.utc)

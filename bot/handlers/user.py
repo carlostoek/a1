@@ -63,8 +63,7 @@ async def cmd_free_access(message: Message, session):
     elif result["status"] == "queued":
         wait_minutes = result["wait_minutes"]
         response_text = (
-            f"⏳ Solicitud recibida.\n"
-            f"Para evitar spam, debes esperar <b>{wait_minutes} minutos</b>.\n"
+            f"⏳ Tu tiempo de espera es {wait_minutes} minutos.\n"
             f"El bot te enviará el enlace automáticamente cuando pase el tiempo. ¡No bloquees al bot!"
         )
 
