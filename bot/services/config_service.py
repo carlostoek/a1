@@ -2,12 +2,26 @@
 Service for managing bot configuration settings.
 """
 import asyncio
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union, TypedDict, Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import SQLAlchemyError
 from bot.database.models import BotConfig, SubscriptionTier
 from bot.services.exceptions import ConfigError
+
+
+# Type definitions for config service return values
+class WaitTimeUpdateSuccess(TypedDict):
+    success: Literal[True]
+    wait_time_minutes: int
+
+
+class WaitTimeUpdateError(TypedDict):
+    success: Literal[False]
+    error: str
+
+
+WaitTimeUpdateResult = Union[WaitTimeUpdateSuccess, WaitTimeUpdateError]
 
 
 class ConfigService:
@@ -158,6 +172,63 @@ class ConfigService:
             return True
         except SQLAlchemyError as e:
             raise ConfigError(f"Error deleting subscription tier: {str(e)}")
+
+    @classmethod
+    async def update_wait_time(cls, minutes: Union[int, str], session: AsyncSession) -> WaitTimeUpdateResult:
+        """
+        Parse, validate, and update the wait time configuration.
+
+        Args:
+            minutes: Number of minutes to wait (as int or string)
+            session: Database session
+
+        Returns:
+            dict: Operation result with success status and saved value
+        """
+        try:
+            # Convert minutes to integer and validate it's positive
+            minutes_int = int(minutes)
+            if minutes_int < 0:
+                return {
+                    "success": False,
+                    "error": "El tiempo de espera no puede ser negativo. Por favor, introduce un número entero positivo."
+                }
+
+            # Get the bot configuration WITHOUT using cache to avoid session conflicts (similar to update_config)
+            result = await session.execute(select(BotConfig))
+            config = result.scalars().first()
+
+            # If no config exists, create one with defaults
+            if config is None:
+                config = BotConfig()
+                session.add(config)
+                await session.commit()
+                await session.refresh(config)
+
+            # Update the wait time minutes field
+            config.wait_time_minutes = minutes_int
+
+            # Commit the changes to the database
+            await session.commit()
+
+            # Update the cached config
+            cls._config_cache = config
+
+            return {
+                "success": True,
+                "wait_time_minutes": minutes_int
+            }
+        except ValueError:
+            return {
+                "success": False,
+                "error": "Entrada inválida. Por favor, introduce solo un número entero positivo para los minutos."
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Error guardando el tiempo de espera: {str(e)}"
+            }
 
     @classmethod
     async def setup_reactions(cls, channel_type: str, reactions_str: str, session: AsyncSession) -> List[str]:

@@ -25,5 +25,9 @@ class FreeConfigStates(StatesGroup):
     waiting_wait_time_minutes = State()
 
 
+class WaitTimeSetupStates(StatesGroup):
+    waiting_wait_time_minutes = State()  # Espera el valor entero del tiempo de espera en minutos
+
+
 class ReactionSetupStates(StatesGroup):
     waiting_reactions_input = State()  # Espera la cadena de emojis separados por coma.
