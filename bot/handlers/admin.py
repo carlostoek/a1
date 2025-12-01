@@ -2,7 +2,7 @@
 Manejadores de administración para el Bot de Telegram.
 Implementa la navegación por menús y la generación de tokens.
 """
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command, CommandObject
@@ -15,7 +15,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
-from bot.states import SubscriptionTierStates, ChannelSetupStates, ReactionSetupStates, WaitTimeSetupStates
+from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 from bot.utils.ui import MenuFactory
@@ -204,6 +204,7 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
 
     # Add additional VIP options
     options.extend([
+        ("📢 Enviar Publicación", "admin_send_channel_post"),
         ("📊 Ver Stats", "vip_stats"),
         ("⚙️ Configurar", "vip_config"),
     ])
@@ -232,6 +233,7 @@ async def admin_free(callback_query: CallbackQuery):
     """Edit message to show Free menu using MenuFactory."""
     # Define free menu options
     free_options = [
+        ("📢 Enviar Publicación", "send_to_free_channel"),
         ("📊 Ver Stats", "free_stats"),
         ("⚙️ Configurar", "free_config"),
     ]
@@ -429,6 +431,177 @@ async def process_wait_time_input(message: Message, state: FSMContext, session: 
         await message.reply(response_text)
 
     # Clear the state
+    await state.clear()
+
+
+# Callback handlers for post sending
+@admin_router.callback_query(F.data == "admin_send_channel_post")
+async def setup_post_start_vip(callback_query: CallbackQuery, state: FSMContext):
+    """Start the post sending flow for VIP channel."""
+    # Store channel type in FSM context
+    await state.update_data(channel_type="vip")
+    await state.set_state(PostSendingStates.waiting_post_content)
+    await safe_edit_message(
+        callback_query,
+        "📡 Enviando publicación al Canal VIP\n\n"
+        "Por favor, envía el contenido que deseas publicar (texto, foto, video, etc.)."
+    )
+
+
+@admin_router.callback_query(F.data == "send_to_free_channel")
+async def setup_post_start_free(callback_query: CallbackQuery, state: FSMContext):
+    """Start the post sending flow for Free channel."""
+    # Store channel type in FSM context
+    await state.update_data(channel_type="free")
+    await state.set_state(PostSendingStates.waiting_post_content)
+    await safe_edit_message(
+        callback_query,
+        "📡 Enviando publicación al Canal Free\n\n"
+        "Por favor, envía el contenido que deseas publicar (texto, foto, video, etc.)."
+    )
+
+
+@admin_router.message(PostSendingStates.waiting_post_content)
+async def receive_post_content(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
+    """Receive post content and check if reactions are configured."""
+    # Store the message ID and chat ID in FSM
+    await state.update_data(message_id=message.message_id, from_chat_id=message.chat.id)
+
+    # Get channel type from FSM
+    data = await state.get_data()
+    channel_type = data.get("channel_type", "vip")  # default to vip
+
+    # Get the bot configuration to check for reactions
+    config = await ConfigService.get_bot_config(session)
+
+    # Get reactions list for the channel type
+    reactions_list = []
+    if channel_type == "vip":
+        reactions_list = config.vip_reactions or []
+    elif channel_type == "free":
+        reactions_list = config.free_reactions or []
+
+    # Bifurcation based on whether reactions are configured
+    if reactions_list and len(reactions_list) > 0:
+        # CASE A: Reactions are configured, ask for decision
+        await state.set_state(PostSendingStates.waiting_reaction_decision)
+
+        # Create inline keyboard with reaction decision options
+        keyboard = InlineKeyboardBuilder()
+        keyboard.button(text="✅ Sí", callback_data="post_react_yes")
+        keyboard.button(text="❌ No", callback_data="post_react_no")
+        keyboard.adjust(2)  # 2 buttons per row
+
+        await message.reply(
+            "💋 Reacciones Detectadas\n¿Deseas añadir los botones de reacción a esta publicación?",
+            reply_markup=keyboard.as_markup()
+        )
+    else:
+        # CASE B: No reactions configured, skip to confirmation
+        await state.update_data(use_reactions=False)
+        # Continue to preview generation
+        await generate_preview(message, state, session, bot)
+
+
+@admin_router.callback_query(F.data.in_(["post_react_yes", "post_react_no"]), PostSendingStates.waiting_reaction_decision)
+async def process_reaction_decision(callback_query: CallbackQuery, state: FSMContext, session: AsyncSession, bot: Bot):
+    """Process the reaction decision and proceed to preview."""
+    await state.update_data(use_reactions=(callback_query.data == "post_react_yes"))
+
+    # Proceed to generate preview
+    await state.set_state(PostSendingStates.waiting_confirmation)
+    await generate_preview(callback_query, state, session, bot)
+
+
+async def generate_preview(context, state: FSMContext, session: AsyncSession, bot: Bot):
+    """Generate a preview of the post with or without reactions."""
+    # Get all necessary data from FSM
+    data = await state.get_data()
+    message_id = data["message_id"]
+    from_chat_id = data["from_chat_id"]
+    use_reactions = data.get("use_reactions", False)
+    channel_type = data.get("channel_type", "vip")
+
+    # Prepare the reply markup based on use_reactions flag
+    reply_markup = None
+    if use_reactions:
+        config = await ConfigService.get_bot_config(session)
+        reactions_list = []
+        if channel_type == "vip":
+            reactions_list = config.vip_reactions or []
+        elif channel_type == "free":
+            reactions_list = config.free_reactions or []
+
+        if reactions_list:
+            from bot.utils.ui import MenuFactory
+            reply_markup = MenuFactory.create_reaction_keyboard(channel_type, reactions_list)
+
+    # Send preview to the admin (current chat)
+    admin_chat_id = context.from_user.id if hasattr(context, 'from_user') else None
+    if not admin_chat_id:
+        # If we're in a message handler, admin_chat_id should be message.chat.id
+        admin_chat_id = context.chat.id if hasattr(context, 'chat') else context.message.chat.id
+
+    try:
+        # Copy the message to the admin as a preview
+        await bot.copy_message(
+            chat_id=admin_chat_id,
+            from_chat_id=from_chat_id,
+            message_id=message_id,
+            reply_markup=reply_markup
+        )
+    except Exception:
+        # If we can't copy the message, we need to handle it differently
+        # For now, let's just send a text message for preview
+        preview_text = f"Previsualización: Mensaje ID {message_id} de chat {from_chat_id}"
+        await bot.send_message(admin_chat_id, preview_text)
+
+    # Send confirmation menu
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="🚀 Enviar", callback_data="confirm_send")
+    keyboard.button(text="❌ Cancelar", callback_data="cancel_send")
+    keyboard.adjust(2)
+
+    await bot.send_message(
+        admin_chat_id,
+        "¿Enviar esta publicación?",
+        reply_markup=keyboard.as_markup()
+    )
+
+
+@admin_router.callback_query(F.data == "confirm_send")
+async def confirm_post_send(callback_query: CallbackQuery, state: FSMContext, session: AsyncSession, bot: Bot):
+    """Confirm and send the post to the target channel."""
+    # Get all necessary data from FSM
+    data = await state.get_data()
+    message_id = data["message_id"]
+    from_chat_id = data["from_chat_id"]
+    use_reactions = data.get("use_reactions", False)
+    channel_type = data["channel_type"]
+
+    # Call the ChannelManagementService to broadcast the post
+    result = await ChannelManagementService.broadcast_post(
+        target_channel_type=channel_type,
+        message_id=message_id,
+        from_chat_id=from_chat_id,
+        use_reactions=use_reactions,
+        bot=bot,
+        session=session
+    )
+
+    if result["success"]:
+        await callback_query.answer(f"✅ Publicación enviada al canal {channel_type}!", show_alert=True)
+    else:
+        await callback_query.answer(f"❌ Error al enviar la publicación: {result['error']}", show_alert=True)
+
+    # Clear the state
+    await state.clear()
+
+
+@admin_router.callback_query(F.data == "cancel_send")
+async def cancel_post_send(callback_query: CallbackQuery, state: FSMContext):
+    """Cancel the post sending process."""
+    await callback_query.answer("❌ Envió de publicación cancelado.", show_alert=True)
     await state.clear()
 
 

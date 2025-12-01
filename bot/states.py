@@ -10,8 +10,9 @@ class ChannelSetupStates(StatesGroup):
 
 
 class PostSendingStates(StatesGroup):
-    waiting_post_content = State()
-    waiting_confirmation = State()
+    waiting_post_content = State()          # Espera el mensaje (texto/foto/video)
+    waiting_reaction_decision = State()     # (NUEVO) Espera Sí/No para adjuntar reacciones
+    waiting_confirmation = State()          # Espera confirmación final tras preview
 
 
 class SubscriptionTierStates(StatesGroup):
