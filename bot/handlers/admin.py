@@ -15,7 +15,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.exceptions import ServiceError, SubscriptionError
-from bot.states import SubscriptionTierStates, ChannelSetupStates, FreeConfigStates, ReactionSetupStates, WaitTimeSetupStates
+from bot.states import SubscriptionTierStates, ChannelSetupStates, ReactionSetupStates, WaitTimeSetupStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 from bot.utils.ui import MenuFactory
@@ -419,18 +419,17 @@ async def process_wait_time_input(message: Message, state: FSMContext, session: 
         new_value = result["wait_time_minutes"]
         response_text = f"✅ Tiempo de espera actualizado a {new_value} minutos. Las nuevas solicitudes lo usarán inmediatamente."
         await message.reply(response_text)
+
+        # Acknowledge completion after success
+        await message.reply("Regresando al menú principal para continuar.")
     else:
-        # Error: show error message
+        # Error: show specific error message from service
         error = result["error"]
-        response_text = f"❌ Entrada inválida. Por favor, introduce solo un número entero positivo para los minutos."
+        response_text = f"❌ {error}"
         await message.reply(response_text)
 
     # Clear the state
     await state.clear()
-
-    # Since we can't return to the menu from a message handler, we could send the menu content directly
-    # For now, just acknowledge the completion
-    await message.reply("Configuración de tiempo de espera completada. Regresa al menú principal para continuar.")
 
 
 # Callback handlers for main menu options
