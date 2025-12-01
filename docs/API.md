@@ -94,6 +94,18 @@ Gestiona las solicitudes de acceso a canales y estadísticas.
     }
     ```
 
+- **broadcast_post(target_channel_type, message_id, from_chat_id, use_reactions, bot, session)**
+  - Envía una publicación al canal objetivo con reacciones opcionales
+  - Parámetros: `target_channel_type` ("vip", "free"), `message_id`, `from_chat_id`, `use_reactions`, `bot`, `session`
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,
+      "message_id": int (si éxito),
+      "error": string (si error)
+    }
+    ```
+
 ### ConfigService
 
 Gestiona la configuración global del bot con caché en memoria.
@@ -148,6 +160,19 @@ Gestiona la configuración global del bot con caché en memoria.
   - Configura las reacciones inline para un tipo de canal
   - **Parámetros**: `channel_type` ("vip", "free"), `reactions_str`, `session`
   - **Retorna**: Lista de emojis configurados
+
+## Utilidades de UI
+
+### MenuFactory
+
+Clase para crear componentes de interfaz de usuario estandarizados.
+
+#### Funciones Principales
+
+- **create_reaction_keyboard(channel_type, reactions_list)**
+  - Crea un teclado inline con botones de reacción para posts
+  - Parámetros: `channel_type` ("vip", "free"), `reactions_list` (lista de emojis)
+  - Retorna: `InlineKeyboardMarkup` con botones de reacción en una sola fila
 
 ## Interacciones con la API de Telegram
 

@@ -9,6 +9,7 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
 - **Acceso Gratuito**: Sistema de colas con tiempos de espera configurables
 - **Panel de Administración**: Interfaz completa para gestión de usuarios y canales
 - **Configuración Flexible**: Personalización de tiempos, reacciones y canales
+- **Publicación de Contenido**: Envío de posts con reacciones opcionales a canales VIP y Free
 - **Estadísticas**: Seguimiento de usuarios activos y solicitudes pendientes
 
 ## Instalación

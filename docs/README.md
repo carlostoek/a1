@@ -70,3 +70,13 @@ El bot utiliza variables de entorno definidas en `.env`:
 - `BOT_TOKEN`: Token del bot de Telegram
 - `ADMIN_IDS`: IDs de usuarios con permisos de administrador (JSON array o comma-separated)
 - `DB_URL`: URL de conexión a la base de datos (opcional)
+
+## Documentación Adicional
+
+- [Arquitectura](ARCHITECTURE.md) - Estructura y diseño del sistema
+- [Comandos](COMMANDS.md) - Detalles de todos los comandos y flujos
+- [API y Servicios](API.md) - Interacciones y servicios del sistema
+- [Modelos](MODELS.md) - Estructura de base de datos
+- [FSM](FSM.md) - Máquinas de estados para flujos de configuración
+- [Envío de Publicaciones](POST_SENDING.md) - Funcionalidad de envío de posts con reacciones
+- [Historial de Cambios](CHANGELOG.md) - Registro de versiones y cambios

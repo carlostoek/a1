@@ -58,7 +58,7 @@ Los handlers están ubicados en `bot/handlers/` y son responsables de procesar l
 Ubicados en `bot/services/`, estos módulos contienen la lógica de negocio:
 
 - **subscription_service.py**: Gestión de tokens de suscripción VIP
-- **channel_service.py**: Gestión de solicitudes a canales y estadísticas
+- **channel_service.py**: Gestión de solicitudes a canales, estadísticas y envío de publicaciones
 - **config_service.py**: Gestión de configuración global del bot
 
 ### 3. Capa de Persistencia (Database)
@@ -81,6 +81,7 @@ Implementado usando Aiogram para manejar flujos de configuración como:
 - Configuración de reacciones
 - Registro de canales
 - Creación de tarifas de suscripción
+- Envío de publicaciones con reacciones opcionales
 
 ### Middleware
 Implementado para:

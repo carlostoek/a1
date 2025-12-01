@@ -21,11 +21,20 @@ Gestiona la configuración de IDs de canales VIP y gratuito.
 
 ### PostSendingStates
 
-**Estados**:
-- `waiting_post_content`: Espera el contenido de la publicación a enviar
-- `waiting_confirmation`: Espera confirmación del envío
+Gestiona el flujo de envío de publicaciones a canales VIP y gratuito con reacciones opcionales.
 
-*(Nota: Estados definidos pero posiblemente no implementados completamente en el código actual)*
+**Estados**:
+- `waiting_post_content`: Espera el contenido de la publicación a enviar (texto, foto, video, etc.)
+- `waiting_reaction_decision`: Espera la decisión del admin sobre incluir reacciones (sí/no)
+- `waiting_confirmation`: Espera confirmación final tras mostrar previsualización
+
+**Flujo**:
+1. Administrador selecciona "Enviar Publicación" desde menú VIP o Free
+2. Bot solicita contenido → `waiting_post_content`
+3. Si reacciones están configuradas para el canal: pregunta si incluir → `waiting_reaction_decision`
+4. Sistema muestra previsualización exacta del formato final
+5. Usuario confirma/envía o cancela → `waiting_confirmation`
+6. Publicación enviada al canal o proceso cancelado, estado limpiado
 
 ### SubscriptionTierStates
 
