@@ -14,6 +14,7 @@ from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
+from bot.services.stats_service import StatsService
 from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates
 from bot.config import Settings
@@ -256,37 +257,126 @@ async def admin_free(callback_query: CallbackQuery):
     )
 
 @admin_router.callback_query(F.data == "admin_stats")
-async def admin_stats(callback_query: CallbackQuery, session: AsyncSession):
-    """Show stats summary using ChannelManagementService and MenuFactory."""
+async def admin_stats_menu(callback_query: CallbackQuery, session: AsyncSession):
+    """Show main statistics menu with three options: General, VIP, Free."""
+    # Create the main stats menu with three options
+    stats_options = [
+        ("📊 General", "stats_general"),
+        ("💎 VIP", "stats_vip"),
+        ("💬 FREE", "stats_free"),
+    ]
+
+    menu_data = MenuFactory.create_menu(
+        title="📊 Estadísticas",
+        options=stats_options,
+        back_callback="admin_main_menu",
+        has_main=True
+    )
+
+    await safe_edit_message(
+        callback_query,
+        menu_data['text'],
+        menu_data['markup']
+    )
+
+
+@admin_router.callback_query(F.data == "stats_general")
+async def view_general_stats(callback_query: CallbackQuery, session: AsyncSession):
+    """Show general statistics for the bot."""
     try:
-        # Get channel stats
-        stats = await ChannelManagementService.get_channel_stats(session, "vip")
-        free_stats = await ChannelManagementService.get_channel_stats(session, "general")
+        # Get general stats from the service
+        stats = await StatsService.get_general_stats(session)
 
-        # Create stats info as description
-        stats_description = (
-            f"📊 Estadísticas del Bot:\n\n"
-            f"Usuarios VIP activos: {stats['active_subscribers']}\n"
-            f"Solicitudes Free: {free_stats['total_requests']}\n"
-            f"Solicitudes pendientes: {free_stats['pending_requests']}"
+        # Format the summary text as specified
+        text = (
+            "📊 **ESTADÍSTICAS GENERALES DEL BOT**\n\n"
+            "👤 **USUARIOS Y SUSCRIPCIONES**\n"
+            f"- Total de Usuarios Únicos: {stats['total_users']}\n"
+            f"- Suscripciones VIP Activas: {stats['active_vip']}\n"
+            f"- Suscripciones VIP Históricas (Exp./Rev.): {stats['expired_revoked_vip']}\n"
+            f"- Tokens de Invitación Generados: {stats['tokens_generated']}\n\n"
+            "💰 **INGRESOS (Placeholder)**\n"
+            f"- Ingresos Totales Estimados: {stats['total_revenue']} (Se implementará con pasarela de pago)"
         )
 
-        # Create simple menu with just navigation options
-        stats_options = [
-            ("🔄 Actualizar", "admin_stats"),  # Refresh stats
-        ]
+        # Create keyboard with back button to stats menu
+        keyboard = InlineKeyboardBuilder()
+        keyboard.button(text="↩️ Volver a Estadísticas", callback_data="admin_stats")
 
-        menu_data = MenuFactory.create_menu(
-            title="Estadísticas",
-            options=stats_options,
-            description=stats_description,
-            back_callback="admin_main_menu",
-            has_main=True
+        await safe_edit_message(
+            callback_query,
+            text,
+            reply_markup=keyboard.as_markup()
+        )
+    except Exception as e:
+        await callback_query.answer(f"Error al obtener estadísticas generales: {str(e)}", show_alert=True)
+
+
+@admin_router.callback_query(F.data == "stats_vip")
+async def view_vip_stats(callback_query: CallbackQuery, session: AsyncSession):
+    """Show VIP subscription statistics."""
+    try:
+        # Get VIP stats from the service
+        stats = await StatsService.get_vip_stats(session)
+
+        # Format the tier counts in a more readable way
+        tier_info = ""
+        if stats['tier_counts']:
+            for tier_id, count in stats['tier_counts'].items():
+                tier_info += f"- Tier {tier_id}: {count} usuarios\n"
+        else:
+            tier_info = "- No hay suscriptores activos\n"
+
+        # Format the summary text as specified
+        text = (
+            "💎 **ESTADÍSTICAS VIP**\n\n"
+            "📈 **DISTRIBUCIÓN POR TARIFA**\n"
+            f"{tier_info}\n"
+            "🎫 **TOKENS DE INVITACIÓN**\n"
+            f"- Tokens Redimidos: {stats['tokens_redeemed']}\n"
+            f"- Tokens Expirados/Sin Usar: {stats['tokens_expired_unused']}"
         )
 
-        await safe_edit_message(callback_query, menu_data['text'], menu_data['markup'])
-    except ServiceError:
-        await callback_query.answer('Ocurrió un error al obtener las estadísticas.', show_alert=True)
+        # Create keyboard with back button to stats menu
+        keyboard = InlineKeyboardBuilder()
+        keyboard.button(text="↩️ Volver a Estadísticas", callback_data="admin_stats")
+
+        await safe_edit_message(
+            callback_query,
+            text,
+            reply_markup=keyboard.as_markup()
+        )
+    except Exception as e:
+        await callback_query.answer(f"Error al obtener estadísticas VIP: {str(e)}", show_alert=True)
+
+
+@admin_router.callback_query(F.data == "stats_free")
+async def view_free_stats(callback_query: CallbackQuery, session: AsyncSession):
+    """Show free channel statistics."""
+    try:
+        # Get free channel stats from the service
+        stats = await StatsService.get_free_channel_stats(session)
+
+        # Format the summary text as specified
+        text = (
+            "💬 **ESTADÍSTICAS CANAL FREE**\n\n"
+            "⏳ **SOLICITUDES EN ESPERA (Waiting Room)**\n"
+            f"- Solicitudes Pendientes: {stats['pending_count']}\n"
+            f"- Solicitudes Procesadas (Histórico): {stats['processed_count']}\n"
+            f"- Solicitudes Rechazadas/Limpiadas: {stats['rejected_count']}"
+        )
+
+        # Create keyboard with back button to stats menu
+        keyboard = InlineKeyboardBuilder()
+        keyboard.button(text="↩️ Volver a Estadísticas", callback_data="admin_stats")
+
+        await safe_edit_message(
+            callback_query,
+            text,
+            reply_markup=keyboard.as_markup()
+        )
+    except Exception as e:
+        await callback_query.answer(f"Error al obtener estadísticas FREE: {str(e)}", show_alert=True)
 
 
 # Callback handlers for VIP menu options
