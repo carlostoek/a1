@@ -203,6 +203,50 @@ Gestiona la configuración global del bot con caché en memoria.
     }
     ```
 
+### StatsService
+
+Gestiona las estadísticas generales, VIP y del canal gratuito del bot.
+
+#### Funciones Principales
+
+- **get_general_stats(session)**
+  - Obtiene estadísticas generales del bot
+  - **Parámetros**: `session` (sesión de base de datos)
+  - **Retorna**:
+    ```python
+    {
+      "total_users": int,                    # Total de usuarios únicos registrados
+      "active_vip": int,                     # Suscripciones VIP activas
+      "expired_revoked_vip": int,            # Suscripciones VIP históricas (expiradas/revocadas)
+      "tokens_generated": int,               # Tokens de invitación generados
+      "total_revenue": float                 # Ingresos totales estimados (placeholder)
+    }
+    ```
+
+- **get_vip_stats(session)**
+  - Obtiene estadísticas de suscripciones VIP
+  - **Parámetros**: `session` (sesión de base de datos)
+  - **Retorna**:
+    ```python
+    {
+      "tier_counts": dict,                   # Conteo de usuarios activos por ID de tarifa
+      "tokens_redeemed": int,                # Tokens de invitación redimidos
+      "tokens_expired_unused": int           # Tokens expirados/sin usar
+    }
+    ```
+
+- **get_free_channel_stats(session)**
+  - Obtiene estadísticas del canal gratuito
+  - **Parámetros**: `session` (sesión de base de datos)
+  - **Retorna**:
+    ```python
+    {
+      "pending_count": int,                  # Solicitudes pendientes
+      "processed_count": int,                # Solicitudes procesadas (histórico)
+      "rejected_count": int                  # Solicitudes rechazadas/limpiadas
+    }
+    ```
+
 ## Utilidades de UI
 
 ### MenuFactory

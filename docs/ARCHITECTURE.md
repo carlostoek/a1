@@ -60,6 +60,7 @@ Ubicados en `bot/services/`, estos módulos contienen la lógica de negocio:
 - **subscription_service.py**: Gestión de tokens de suscripción VIP
 - **channel_service.py**: Gestión de solicitudes a canales, estadísticas y envío de publicaciones
 - **config_service.py**: Gestión de configuración global del bot
+- **stats_service.py**: Gestión de estadísticas generales, VIP y del canal gratuito
 
 ### 3. Capa de Persistencia (Database)
 

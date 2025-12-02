@@ -14,6 +14,8 @@
 - Sistema de acceso gratuito con colas y tiempos de espera
 - Gestión de roles de usuario (free, vip, admin)
 - Estadísticas de usuarios y solicitudes
+- Dashboard de estadísticas con vistas detalladas (general, VIP, free)
+- Servicio StatsService para recuperación y agregación de estadísticas
 - Middlewares de autenticación y base de datos
 - Base de datos con SQLAlchemy y modelos ORM
 - Estados FSM para flujos de configuración

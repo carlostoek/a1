@@ -162,6 +162,25 @@
   - Solicitudes Free totales
   - Solicitudes pendientes
 
+### Dashboard de Estadísticas
+- **Descripción**: Nuevo dashboard de estadísticas con vistas detalladas
+- **Flujo**: Admin → Stats → Elegir tipo de estadísticas → Ver estadísticas específicas
+- **Opciones disponibles**:
+  - **General**: Estadísticas generales del bot
+    - Total de usuarios únicos
+    - Suscripciones VIP activas
+    - Suscripciones VIP históricas (expiradas/revocadas)
+    - Tokens de invitación generados
+    - Ingresos totales estimados (placeholder)
+  - **VIP**: Estadísticas de suscripciones VIP
+    - Distribución por tarifa (cantidad de usuarios por tarifa)
+    - Tokens redimidos
+    - Tokens expirados/sin usar
+  - **Free**: Estadísticas del canal gratuito
+    - Solicitudes pendientes
+    - Solicitudes procesadas (histórico)
+    - Solicitudes rechazadas/limpiadas
+
 ## Flujos FSM (Máquina de Estados Finitos)
 
 ### Creación/Edición de Tarifas
