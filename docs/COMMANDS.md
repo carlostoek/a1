@@ -91,8 +91,24 @@
   4. Navegación entre páginas con controles de paginación
   5. Opción de revocar acceso desde la vista de detalles
 
+#### Configurar Tarifas
+- **Descripción**: Accede a la gestión de tarifas de suscripción VIP
+- **Funcionalidades**:
+  - Ver lista de tarifas existentes
+  - Crear nueva tarifa
+  - Editar tarifas existentes
+  - Eliminar tarifas (desactivar)
+
+#### Configurar Reacciones
+- **Descripción**: Configura reacciones inline para el canal VIP
+- **Flujo**:
+  1. Admin selecciona "Configurar Reacciones" desde menú VIP
+  2. Introduce emojis separados por coma (ej: 👍,🔥,🚀)
+  3. Sistema guarda la lista de reacciones
+  4. Las reacciones se aplican a las publicaciones futuras
+
 #### Configurar
-- **Descripción**: Accede a las opciones de configuración VIP
+- **Descripción**: Accede al submenú de configuración VIP
 - **Opciones disponibles**:
   - Ver estadísticas
   - Configurar reacciones inline
@@ -121,8 +137,33 @@
   - Solicitudes totales
   - Solicitudes pendientes
 
+#### Procesar Pendientes
+- **Descripción**: Procesa manualmente todas las solicitudes pendientes de acceso gratuito
+- **Flujo**:
+  1. Admin selecciona "Procesar Pendientes" desde menú Free
+  2. El sistema aprueba todas las solicitudes pendientes
+  3. Se envían enlaces de invitación individuales a cada usuario
+  4. Se actualiza el estado de las solicitudes como procesadas
+- **Funcionalidad**: Aprobación masiva de solicitudes en espera
+
+#### Configurar Tiempo de Espera
+- **Descripción**: Configura el tiempo de espera para solicitudes de acceso gratuito
+- **Flujo**:
+  1. Admin selecciona "Configurar Tiempo de Espera" desde menú Free
+  2. Introduce la duración en minutos (solo números enteros)
+  3. Sistema actualiza la configuración
+  4. El nuevo tiempo se aplica a nuevas solicitudes
+
+#### Configurar Reacciones
+- **Descripción**: Configura reacciones inline para el canal gratuito
+- **Flujo**:
+  1. Admin selecciona "Configurar Reacciones" desde menú Free
+  2. Introduce emojis separados por coma (ej: 👍,🔥,🚀)
+  3. Sistema guarda la lista de reacciones
+  4. Las reacciones se aplican a las publicaciones futuras
+
 #### Configurar
-- **Descripción**: Accede a las opciones de configuración del canal gratuito
+- **Descripción**: Accede al submenú de configuración del canal gratuito
 - **Opciones disponibles**:
   - Ver estadísticas
   - Configurar reacciones inline
@@ -217,3 +258,8 @@
   4. Previsualización exacta del formato final
   5. Confirmación final → `waiting_confirmation` (Enviar/Cancelar)
   6. Envío al canal correspondiente
+
+### Procesamiento de Solicitudes Pendientes
+- **Callback**: `process_pending_now`
+- **Descripción**: Callback para procesar manualmente todas las solicitudes pendientes de acceso gratuito
+- **Funcionalidad**: Aprobar todas las solicitudes pendientes de forma masiva y enviar enlaces de invitación individuales a los usuarios

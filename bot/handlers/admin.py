@@ -206,12 +206,14 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         for tier in tiers
     ]
 
-    # Add additional VIP options
+    # Agregar opciones VIP adicionales según especificación
     options.extend([
         ("📢 Enviar Publicación", "admin_send_channel_post"),
         ("👥 Gestionar Suscriptores", "vip_manage"),
         ("📊 Ver Stats", "vip_stats"),
-        ("⚙️ Configurar", "vip_config"),
+        ("💰 Configurar Tarifas", "config_tiers"),  # Gestionar niveles de suscripción
+        ("💋 Configurar Reacciones", "vip_config_reactions"),  # Configurar reacciones
+        ("⚙️ Configurar", "vip_config"),  # Opciones de configuración VIP adicionales
     ])
 
     # Check if there are no tiers and add appropriate description
@@ -236,11 +238,14 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
 @admin_router.callback_query(F.data == "admin_free")
 async def admin_free(callback_query: CallbackQuery):
     """Edit message to show Free menu using MenuFactory."""
-    # Define free menu options
+    # Definir opciones del menú FREE según especificación
     free_options = [
         ("📢 Enviar Publicación", "send_to_free_channel"),
         ("📊 Ver Stats", "free_stats"),
-        ("⚙️ Configurar", "free_config"),
+        ("⚡ Procesar Pendientes", "process_pending_now"),  # Procesamiento manual de solicitudes pendientes
+        ("⏱️ Configurar Tiempo de Espera", "free_wait_time_config"),  # Configurar tiempo de espera
+        ("💋 Configurar Reacciones", "free_config_reactions"),  # Configurar reacciones
+        ("⚙️ Configurar", "free_config"),  # Opciones de configuración gratuita adicionales
     ]
 
     menu_data = MenuFactory.create_menu(
@@ -709,6 +714,23 @@ async def cancel_post_send(callback_query: CallbackQuery, state: FSMContext):
     await state.clear()
 
 
+@admin_router.callback_query(F.data == "process_pending_now")
+async def process_pending_requests_now(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
+    """Manually trigger the processing of all pending free channel requests."""
+    try:
+        # Process all pending requests using the service method
+        result = await ChannelManagementService.process_pending_requests(session, bot)
+
+        if result["success"]:
+            # Display the result message showing how many were processed
+            await callback_query.answer(result["message"], show_alert=True)
+        else:
+            # Display error message if the operation failed
+            await callback_query.answer(f"❌ Error al procesar solicitudes: {result['error']}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error al procesar solicitudes pendientes: {str(e)}", show_alert=True)
+
+
 # Callback handlers for VIP subscriber management
 @admin_router.callback_query(F.data == "vip_manage")
 async def view_subscribers_list_first_page(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
@@ -854,43 +876,24 @@ async def process_revocation(callback_query: CallbackQuery, session: AsyncSessio
 # Callback handlers for main menu options
 @admin_router.callback_query(F.data == "admin_config")
 async def admin_config(callback_query: CallbackQuery, session: AsyncSession):
-    """Show general configuration status dashboard using ConfigService."""
-    # Get configuration status
-    config_status = await ConfigService.get_config_status(session)
+    """Show main configuration menu using MenuFactory with options to configure different aspects."""
+    # Define configuration menu options according to the specification
+    config_options = [
+        ("💰 Gestionar Tarifas", "config_tiers"),  # Gestionar niveles de suscripción
+        ("📡 Configurar Canales", "config_channels_menu"),  # Configurar canales
+    ]
 
-    # Format the configuration status report
-    vip_channel_status = "✅" if config_status["vip_channel_id"] else "❌"
-    free_channel_status = "✅" if config_status["free_channel_id"] else "❌"
-    tier_status = "✅" if config_status["active_tiers_count"] > 0 else "❌"
-    vip_reactions_status = "✅" if config_status["vip_reactions"] else "❌"
-    free_reactions_status = "✅" if config_status["free_reactions"] else "❌"
-
-    # Format reaction emojis for display
-    vip_reactions_display = ", ".join(config_status["vip_reactions"]) if config_status["vip_reactions"] else "Pendiente"
-    free_reactions_display = ", ".join(config_status["free_reactions"]) if config_status["free_reactions"] else "Pendiente"
-
-    # Build the report text
-    report_text = (
-        "⚙️ **ESTADO GENERAL DEL BOT**\n\n"
-        "**CANALES:**\n"
-        f"- Canal VIP: {vip_channel_status} (ID: {config_status['vip_channel_id'] or 'Pendiente'})\n"
-        f"- Canal FREE: {free_channel_status} (ID: {config_status['free_channel_id'] or 'Pendiente'})\n\n"
-        "**NEGOCIO:**\n"
-        f"- Tarifas Activas: {tier_status} {config_status['active_tiers_count']} Tarifa(s)\n"
-        f"- Tiempo de Espera FREE: {config_status['wait_time_minutes']} minutos\n\n"
-        "**REACCIONES:**\n"
-        f"- Reacciones VIP: {vip_reactions_status} ({vip_reactions_display})\n"
-        f"- Reacciones FREE: {free_reactions_status} ({free_reactions_display})"
+    menu_data = MenuFactory.create_menu(
+        title="⚙️ Configuración Principal",
+        options=config_options,
+        back_callback="admin_main_menu",
+        has_main=True
     )
-
-    # Create keyboard with back button only
-    keyboard = InlineKeyboardBuilder()
-    keyboard.button(text="⬅️ Volver", callback_data="admin_main_menu")
 
     await safe_edit_message(
         callback_query,
-        report_text,
-        reply_markup=keyboard.as_markup()
+        menu_data['text'],
+        menu_data['markup']
     )
 
 
