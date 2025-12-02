@@ -760,25 +760,44 @@ async def process_revocation(callback_query: CallbackQuery, session: AsyncSessio
 
 # Callback handlers for main menu options
 @admin_router.callback_query(F.data == "admin_config")
-async def admin_config(callback_query: CallbackQuery):
-    """Show general configuration options using MenuFactory."""
-    # Define configuration menu options
-    config_options = [
-        ("💳 Gestionar Tarifas", "config_tiers"),
-        ("⚙️ Configurar Canales", "config_channels_menu"),
-    ]
+async def admin_config(callback_query: CallbackQuery, session: AsyncSession):
+    """Show general configuration status dashboard using ConfigService."""
+    # Get configuration status
+    config_status = await ConfigService.get_config_status(session)
 
-    menu_data = MenuFactory.create_menu(
-        title="Configuración General",
-        options=config_options,
-        back_callback="admin_main_menu",
-        has_main=True
+    # Format the configuration status report
+    vip_channel_status = "✅" if config_status["vip_channel_id"] else "❌"
+    free_channel_status = "✅" if config_status["free_channel_id"] else "❌"
+    tier_status = "✅" if config_status["active_tiers_count"] > 0 else "❌"
+    vip_reactions_status = "✅" if config_status["vip_reactions"] and len(config_status["vip_reactions"]) > 0 else "❌"
+    free_reactions_status = "✅" if config_status["free_reactions"] and len(config_status["free_reactions"]) > 0 else "❌"
+
+    # Format reaction emojis for display
+    vip_reactions_display = ", ".join(config_status.get("vip_reactions", [])) if config_status.get("vip_reactions") else "Pendiente"
+    free_reactions_display = ", ".join(config_status.get("free_reactions", [])) if config_status.get("free_reactions") else "Pendiente"
+
+    # Build the report text
+    report_text = (
+        "⚙️ **ESTADO GENERAL DEL BOT**\n\n"
+        "**CANALES:**\n"
+        f"- Canal VIP: {vip_channel_status} (ID: {config_status['vip_channel_id'] or 'Pendiente'})\n"
+        f"- Canal FREE: {free_channel_status} (ID: {config_status['free_channel_id'] or 'Pendiente'})\n\n"
+        "**NEGOCIO:**\n"
+        f"- Tarifas Activas: {tier_status} {config_status['active_tiers_count']} Tarifa(s)\n"
+        f"- Tiempo de Espera FREE: {config_status['wait_time_minutes']} minutos\n\n"
+        "**REACCIONES:**\n"
+        f"- Reacciones VIP: {vip_reactions_status} ({vip_reactions_display})\n"
+        f"- Reacciones FREE: {free_reactions_status} ({free_reactions_display})"
     )
+
+    # Create keyboard with back button only
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="⬅️ Volver", callback_data="admin_main_menu")
 
     await safe_edit_message(
         callback_query,
-        menu_data['text'],
-        menu_data['markup']
+        report_text,
+        reply_markup=keyboard.as_markup()
     )
 
 

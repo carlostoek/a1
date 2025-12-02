@@ -265,6 +265,24 @@ class SubscriptionService:
             raise SubscriptionError(f"Error retrieving VIP subscription: {str(e)}")
 
     @staticmethod
+    async def count_active_tiers(session: AsyncSession) -> int:
+        """
+        Count the number of active subscription tiers.
+
+        Args:
+            session: Database session
+
+        Returns:
+            Number of active subscription tiers
+        """
+        try:
+            from bot.services.config_service import ConfigService
+            all_tiers = await ConfigService.get_all_tiers(session)
+            return len(all_tiers)
+        except SQLAlchemyError as e:
+            raise SubscriptionError(f"Error counting active subscription tiers: {str(e)}")
+
+    @staticmethod
     async def get_active_vips_paginated(page: int, page_size: int, session: AsyncSession) -> tuple:
         """
         Get paginated list of active VIP subscribers.

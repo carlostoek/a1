@@ -84,7 +84,40 @@ class ConfigService:
                 return config
             except SQLAlchemyError as e:
                 raise ConfigError(f"Error retrieving bot configuration: {str(e)}")
-    
+
+    @classmethod
+    async def get_config_status(cls, session: AsyncSession) -> dict:
+        """
+        Get a summary status of the bot configuration for diagnostic purposes.
+
+        Args:
+            session: Database session
+
+        Returns:
+            Dictionary containing the configuration status
+        """
+        try:
+            # Get the bot configuration
+            config = await cls.get_bot_config(session)
+
+            # Count active subscription tiers using the SubscriptionService
+            from bot.services.subscription_service import SubscriptionService
+            active_tiers_count = await SubscriptionService.count_active_tiers(session)
+
+            # Create and return status dictionary
+            status = {
+                "vip_channel_id": config.vip_channel_id,
+                "free_channel_id": config.free_channel_id,
+                "wait_time_minutes": config.wait_time_minutes,
+                "active_tiers_count": active_tiers_count,
+                "vip_reactions": config.vip_reactions,
+                "free_reactions": config.free_reactions
+            }
+
+            return status
+        except SQLAlchemyError as e:
+            raise ConfigError(f"Error retrieving configuration status: {str(e)}")
+
     @classmethod
     async def update_config(cls, session: AsyncSession, field: str, value: Any) -> BotConfig:
         """
