@@ -16,7 +16,8 @@
 - **👥 Gestionar Suscriptores** (`vip_manage`) - Gestión de suscriptores VIP activos
 - **📊 Ver Stats** (`vip_stats`) - Estadísticas de suscriptores VIP
 - **💰 Configurar Tarifas** (`config_tiers`) - Gestión de tarifas de suscripción
-- **⚙️ Configurar** (`vip_config`) - Configuración adicional del canal VIP
+- **💋 Configurar Reacciones** (`vip_config_reactions`) - Configuración de reacciones inline
+- **⚙️ Configurar** (`vip_config`) - Submenú de configuración adicional del canal VIP
 
 ### Submenú de Configuración VIP
 - **📊 Ver Stats** (`vip_stats`) - Estadísticas de suscriptores VIP
@@ -28,7 +29,9 @@
 - **📢 Enviar Publicación** (`send_to_free_channel`) - Envía publicaciones al canal gratuito
 - **📊 Ver Stats** (`free_stats`) - Estadísticas del canal gratuito
 - **⚡ Procesar Pendientes** (`process_pending_now`) - Procesamiento masivo de solicitudes pendientes
-- **⚙️ Configurar** (`free_config`) - Configuración del canal gratuito
+- **⏱️ Configurar Tiempo de Espera** (`free_wait_time_config`) - Configuración del tiempo de espera
+- **💋 Configurar Reacciones** (`free_config_reactions`) - Configuración de reacciones inline
+- **⚙️ Configurar** (`free_config`) - Submenú de configuración del canal gratuito
 
 ### Submenú de Configuración Free
 - **📊 Ver Stats** (`free_stats`) - Estadísticas del canal gratuito
@@ -38,8 +41,8 @@
 ## Menú de Configuración
 
 ### Opciones Disponibles
-- **Gestionar Tarifas** (`config_tiers`) - Gestión de tarifas de suscripción VIP
-- **⚙️ Configurar Canales** (`config_channels_menu`) - Configuración de IDs de canales
+- **💰 Gestionar Tarifas** (`config_tiers`) - Gestión de tarifas de suscripción VIP
+- **📡 Configurar Canales** (`config_channels_menu`) - Configuración de IDs de canales
 - **Volver** (`admin_main_menu`) - Regresa al menú principal
 
 ### Submenú de Configuración de Canales
@@ -73,6 +76,17 @@
 - **Solicitudes Pendientes** - Solicitudes de acceso en espera
 - **Solicitudes Procesadas** - Historial de solicitudes aprobadas
 - **Solicitudes Rechazadas/Limpiadas** - Solicitudes rechazadas o eliminadas
+
+## Submenús de Configuración
+
+### Submenú de Configuración VIP (`vip_config`)
+- **📊 Ver Stats** (`vip_stats`) - Estadísticas de suscriptores VIP
+- **💄 Configurar Reacciones** (`vip_config_reactions`) - Configuración de reacciones inline
+
+### Submenú de Configuración Free (`free_config`)
+- **📊 Ver Stats** (`free_stats`) - Estadísticas del canal gratuito
+- **💄 Configurar Reacciones** (`free_config_reactions`) - Configuración de reacciones inline
+- **⏱️ Configurar Tiempo de Espera** (`free_wait_time_config`) - Configuración del tiempo de espera
 
 ## Navegación entre Menús
 

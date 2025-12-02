@@ -289,6 +289,21 @@ Clase para crear componentes de interfaz de usuario estandarizados.
   - Parámetros: `current_page` (página actual, 1-indexed), `total_pages` (número total de páginas), `callback_prefix` (prefijo para datos de callback)
   - Retorna: `List[InlineKeyboardButton]` con botones de navegación (anterior, info de página, siguiente)
 
+- **create_menu(title, options, description=None, back_callback=None, has_main=True)**
+  - Crea un menú estandarizado con botones de navegación
+  - Parámetros:
+    - `title`: Título del menú
+    - `options`: Lista de tuplas (Texto del botón, Callback data)
+    - `description`: Texto opcional para mostrar sobre el título del menú
+    - `back_callback`: Callback data para el botón 'Volver'. Si es None, no se muestra
+    - `has_main`: Incluir botón 'Menú Principal' (callback 'admin_main_menu')
+  - Retorna: `dict` con claves 'text' (str) y 'markup' (InlineKeyboardMarkup)
+
+- **create_simple_menu(title, options)**
+  - Crea un menú simple sin botones de navegación
+  - Parámetros: `title` (título del menú), `options` (lista de tuplas (Texto del botón, Callback data))
+  - Retorna: `dict` con claves 'text' (str) y 'markup' (InlineKeyboardMarkup)
+
 ## Interacciones con la API de Telegram
 
 ### Aiogram

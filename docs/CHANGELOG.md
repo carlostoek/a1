@@ -26,6 +26,12 @@
 - Método `process_pending_requests` en ChannelManagementService para aprobación masiva
 - Método `approve_request` en ChannelManagementService para aprobación individual
 - Documentación detallada de la estructura de menús en MENU_STRUCTURE.md
+- Implementación completa del menú jerárquico con navegación estándar
+- Submenús de configuración para canales VIP y gratuito
+- Opción "Configurar Reacciones" directamente en menús VIP y Free
+- Opción "Configurar Tiempo de Espera" directamente en menú Free
+- Funcionalidad de "Configurar" como submenú en menús VIP y Free
+- Actualización de documentación para reflejar la estructura completa de menús
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

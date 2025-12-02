@@ -91,12 +91,6 @@
   4. Navegación entre páginas con controles de paginación
   5. Opción de revocar acceso desde la vista de detalles
 
-#### Configurar
-- **Descripción**: Accede a las opciones de configuración VIP
-- **Opciones disponibles**:
-  - Ver estadísticas
-  - Configurar reacciones inline
-
 #### Configurar Tarifas
 - **Descripción**: Accede a la gestión de tarifas de suscripción VIP
 - **Funcionalidades**:
@@ -104,6 +98,20 @@
   - Crear nueva tarifa
   - Editar tarifas existentes
   - Eliminar tarifas (desactivar)
+
+#### Configurar Reacciones
+- **Descripción**: Configura reacciones inline para el canal VIP
+- **Flujo**:
+  1. Admin selecciona "Configurar Reacciones" desde menú VIP
+  2. Introduce emojis separados por coma (ej: 👍,🔥,🚀)
+  3. Sistema guarda la lista de reacciones
+  4. Las reacciones se aplican a las publicaciones futuras
+
+#### Configurar
+- **Descripción**: Accede al submenú de configuración VIP
+- **Opciones disponibles**:
+  - Ver estadísticas
+  - Configurar reacciones inline
 
 ### Gestión Free
 
@@ -129,13 +137,6 @@
   - Solicitudes totales
   - Solicitudes pendientes
 
-#### Configurar
-- **Descripción**: Accede a las opciones de configuración del canal gratuito
-- **Opciones disponibles**:
-  - Ver estadísticas
-  - Configurar reacciones inline
-  - Configurar tiempo de espera
-
 #### Procesar Pendientes
 - **Descripción**: Procesa manualmente todas las solicitudes pendientes de acceso gratuito
 - **Flujo**:
@@ -144,6 +145,29 @@
   3. Se envían enlaces de invitación individuales a cada usuario
   4. Se actualiza el estado de las solicitudes como procesadas
 - **Funcionalidad**: Aprobación masiva de solicitudes en espera
+
+#### Configurar Tiempo de Espera
+- **Descripción**: Configura el tiempo de espera para solicitudes de acceso gratuito
+- **Flujo**:
+  1. Admin selecciona "Configurar Tiempo de Espera" desde menú Free
+  2. Introduce la duración en minutos (solo números enteros)
+  3. Sistema actualiza la configuración
+  4. El nuevo tiempo se aplica a nuevas solicitudes
+
+#### Configurar Reacciones
+- **Descripción**: Configura reacciones inline para el canal gratuito
+- **Flujo**:
+  1. Admin selecciona "Configurar Reacciones" desde menú Free
+  2. Introduce emojis separados por coma (ej: 👍,🔥,🚀)
+  3. Sistema guarda la lista de reacciones
+  4. Las reacciones se aplican a las publicaciones futuras
+
+#### Configurar
+- **Descripción**: Accede al submenú de configuración del canal gratuito
+- **Opciones disponibles**:
+  - Ver estadísticas
+  - Configurar reacciones inline
+  - Configurar tiempo de espera
 
 ### Configuración
 
