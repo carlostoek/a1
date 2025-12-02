@@ -206,14 +206,14 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         for tier in tiers
     ]
 
-    # Add additional VIP options according to specification
+    # Agregar opciones VIP adicionales según especificación
     options.extend([
         ("📢 Enviar Publicación", "admin_send_channel_post"),
         ("👥 Gestionar Suscriptores", "vip_manage"),
         ("📊 Ver Stats", "vip_stats"),
-        ("💰 Configurar Tarifas", "config_tiers"),  # Manage subscription tiers
-        ("💋 Configurar Reacciones", "vip_config_reactions"),  # Configure reactions
-        ("⚙️ Configurar", "vip_config"),  # Additional VIP config options
+        ("💰 Configurar Tarifas", "config_tiers"),  # Gestionar niveles de suscripción
+        ("💋 Configurar Reacciones", "vip_config_reactions"),  # Configurar reacciones
+        ("⚙️ Configurar", "vip_config"),  # Opciones de configuración VIP adicionales
     ])
 
     # Check if there are no tiers and add appropriate description
@@ -238,14 +238,14 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
 @admin_router.callback_query(F.data == "admin_free")
 async def admin_free(callback_query: CallbackQuery):
     """Edit message to show Free menu using MenuFactory."""
-    # Define free menu options according to specification
+    # Definir opciones del menú FREE según especificación
     free_options = [
         ("📢 Enviar Publicación", "send_to_free_channel"),
         ("📊 Ver Stats", "free_stats"),
-        ("⚡ Procesar Pendientes", "process_pending_now"),  # Manual processing of pending requests
-        ("⏱️ Configurar Tiempo de Espera", "free_wait_time_config"),  # Configure wait time
-        ("💋 Configurar Reacciones", "free_config_reactions"),  # Configure reactions
-        ("⚙️ Configurar", "free_config"),  # Additional free config options
+        ("⚡ Procesar Pendientes", "process_pending_now"),  # Procesamiento manual de solicitudes pendientes
+        ("⏱️ Configurar Tiempo de Espera", "free_wait_time_config"),  # Configurar tiempo de espera
+        ("💋 Configurar Reacciones", "free_config_reactions"),  # Configurar reacciones
+        ("⚙️ Configurar", "free_config"),  # Opciones de configuración gratuita adicionales
     ]
 
     menu_data = MenuFactory.create_menu(
@@ -879,8 +879,8 @@ async def admin_config(callback_query: CallbackQuery, session: AsyncSession):
     """Show main configuration menu using MenuFactory with options to configure different aspects."""
     # Define configuration menu options according to the specification
     config_options = [
-        ("💰 Gestionar Tarifas", "config_tiers"),  # Manage subscription tiers
-        ("📡 Configurar Canales", "config_channels_menu"),  # Configure channels
+        ("💰 Gestionar Tarifas", "config_tiers"),  # Gestionar niveles de suscripción
+        ("📡 Configurar Canales", "config_channels_menu"),  # Configurar canales
     ]
 
     menu_data = MenuFactory.create_menu(

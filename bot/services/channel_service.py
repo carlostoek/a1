@@ -279,6 +279,7 @@ class ChannelManagementService:
                     else:
                         errors.append(f"Request {request.id}: {result['error']}")
                 except Exception as e:
+                    logging.exception(f"Error al procesar la solicitud {request.id}")
                     errors.append(f"Request {request.id}: {str(e)}")
 
             summary_message = f"Processed {processed_count}/{len(pending_requests)} pending requests"
@@ -353,8 +354,13 @@ class ChannelManagementService:
                     )
                 )
             except Exception as e:
-                # If sending invite fails, still mark request as processed but with error
-                pass
+                # If sending invite fails, log the error and return failure
+                # to avoid marking the request as approved incorrectly
+                logging.exception(f"No se pudo enviar el enlace de invitación al usuario {request.user_id} para la solicitud {request.id}")
+                return {
+                    "success": False,
+                    "error": f"No se pudo enviar el enlace de invitación: {str(e)}"
+                }
 
             # Mark the request as processed and approved
             request.processed = True
