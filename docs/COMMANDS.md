@@ -130,6 +130,17 @@
 
 ### Configuración
 
+#### Vista de Estado General (Dashboard)
+- **Descripción**: Vista general del estado de configuración del bot
+- **Flujo**: Admin → Config → Vista de Estado General
+- **Contenido del Dashboard**:
+  - Estado de canales (VIP y Free): ✅ (configurado) o ❌ (pendiente)
+  - Conteo de tarifas activas
+  - Tiempo de espera configurado para canal gratuito
+  - Estado de reacciones (VIP y Free): ✅ (configuradas) o ❌ (pendientes)
+  - Formato de emojis indicando estado de cada componente
+- **Salida**: Reporte formateado con emojis indicadores de estado
+
 #### Gestionar Tarifas
 - **Descripción**: Gestión de tarifas de suscripción VIP
 - **Funcionalidades**:
