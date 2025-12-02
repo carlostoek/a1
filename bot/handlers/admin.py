@@ -20,6 +20,9 @@ from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 from bot.utils.ui import MenuFactory
 
+# Constants
+SUBSCRIBER_PAGE_SIZE = 5
+
 # Create router and apply middlewares
 admin_router = Router()
 admin_router.message.middleware(DBSessionMiddleware())
@@ -635,8 +638,8 @@ async def view_subscribers_list(callback_query: CallbackQuery, session: AsyncSes
     """Display paginated list of active VIP subscribers."""
     # Parse page number from callback data if needed - this is now passed as parameter
 
-    # Define page size
-    PAGE_SIZE = 5
+    # Use constant page size
+    PAGE_SIZE = SUBSCRIBER_PAGE_SIZE
 
     # Get paginated list of active VIPs
     users, total_count = await SubscriptionService.get_active_vips_paginated(page, PAGE_SIZE, session)
@@ -662,7 +665,7 @@ async def view_subscribers_list(callback_query: CallbackQuery, session: AsyncSes
     # Add buttons for each user
     for user in users:
         expiry_date = user.expiry_date.strftime("%d/%m")
-        keyboard.button(text=f"👤 {user.user_id} | 📅 {expiry_date}", callback_data=f"vip_user_detail_{user.user_id}")
+        keyboard.button(text=f"👤 {user.user_id} | 📅 {expiry_date}", callback_data=f"vip_user_detail_{user.user_id}_{page}")
 
     # Add pagination controls
     pagination_buttons = MenuFactory.create_pagination_keyboard(page, total_pages, "vip_page")
@@ -683,23 +686,20 @@ async def view_subscribers_list(callback_query: CallbackQuery, session: AsyncSes
 @admin_router.callback_query(F.data.startswith("vip_user_detail_"))
 async def view_subscriber_detail(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
     """Display detailed information about a specific VIP subscriber."""
-    # Extract user_id from callback data
+    # Extract user_id and page from callback data
     try:
-        user_id = int(callback_query.data.split("_")[3])
+        parts = callback_query.data.split("_")
+        user_id = int(parts[3])
+        # Get page if available (from the callback format "vip_user_detail_{user_id}_{page}")
+        page = 1
+        if len(parts) > 4:
+            page = int(parts[4])
     except (ValueError, IndexError):
         await callback_query.answer("❌ ID de usuario inválido", show_alert=True)
         return
 
-    # Get user subscription details
-    result = await session.execute(
-        select(UserSubscription).where(
-            UserSubscription.user_id == user_id,
-            UserSubscription.role == "vip",
-            UserSubscription.status == "active",
-            UserSubscription.expiry_date > datetime.now(timezone.utc)
-        )
-    )
-    subscription = result.scalars().first()
+    # Get user subscription details using service method
+    subscription = await SubscriptionService.get_active_vip_subscription(user_id, session)
 
     if not subscription:
         await callback_query.answer("❌ Usuario no encontrado o no tiene suscripción VIP activa", show_alert=True)
@@ -721,8 +721,8 @@ async def view_subscriber_detail(callback_query: CallbackQuery, session: AsyncSe
 
     # Create keyboard with revoke and back buttons
     keyboard = InlineKeyboardBuilder()
-    keyboard.button(text="🚫 REVOCAR ACCESO", callback_data=f"vip_revoke_confirm_{user_id}")
-    keyboard.button(text="⬅️ Volver a Lista", callback_data=f"vip_manage")
+    keyboard.button(text="🚫 REVOCAR ACCESO", callback_data=f"vip_revoke_confirm_{user_id}_{page}")
+    keyboard.button(text="⬅️ Volver a Lista", callback_data=f"vip_page_{page}")
     keyboard.adjust(1)
 
     await safe_edit_message(
@@ -735,9 +735,14 @@ async def view_subscriber_detail(callback_query: CallbackQuery, session: AsyncSe
 @admin_router.callback_query(F.data.startswith("vip_revoke_confirm_"))
 async def process_revocation(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
     """Process the revocation of VIP access for a specific user."""
-    # Extract user_id from callback data
+    # Extract user_id and page from callback data
     try:
-        user_id = int(callback_query.data.split("_")[3])
+        parts = callback_query.data.split("_")
+        user_id = int(parts[3])
+        # Get page if available (from the callback format "vip_revoke_confirm_{user_id}_{page}")
+        page = 1
+        if len(parts) > 4:
+            page = int(parts[4])
     except (ValueError, IndexError):
         await callback_query.answer("❌ ID de usuario inválido", show_alert=True)
         return
@@ -747,8 +752,8 @@ async def process_revocation(callback_query: CallbackQuery, session: AsyncSessio
 
     if result["success"]:
         await callback_query.answer(f"✅ Usuario {user_id} expulsado y acceso revocado", show_alert=True)
-        # Refresh back to the list
-        await view_subscribers_list(callback_query, session, bot)
+        # Refresh back to the same page in the list
+        await view_subscribers_list(callback_query, session, bot, page=page)
     else:
         await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
 

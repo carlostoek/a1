@@ -240,6 +240,31 @@ class SubscriptionService:
             raise SubscriptionError(f"Database error during token redemption: {e}")
 
     @staticmethod
+    async def get_active_vip_subscription(user_id: int, session: AsyncSession):
+        """
+        Get a specific active VIP subscription for a user.
+
+        Args:
+            user_id: ID of the user to look up
+            session: Database session
+
+        Returns:
+            UserSubscription object if found and active, None otherwise
+        """
+        try:
+            result = await session.execute(
+                select(UserSubscription).where(
+                    UserSubscription.user_id == user_id,
+                    UserSubscription.role == "vip",
+                    UserSubscription.status == "active",
+                    UserSubscription.expiry_date > datetime.now(timezone.utc)
+                )
+            )
+            return result.scalars().first()
+        except SQLAlchemyError as e:
+            raise SubscriptionError(f"Error retrieving VIP subscription: {str(e)}")
+
+    @staticmethod
     async def get_active_vips_paginated(page: int, page_size: int, session: AsyncSession) -> tuple:
         """
         Get paginated list of active VIP subscribers.
@@ -256,22 +281,21 @@ class SubscriptionService:
             # Calculate offset
             offset = (page - 1) * page_size
 
+            # Filter conditions shared between both queries
+            filters = [
+                UserSubscription.role == "vip",
+                UserSubscription.status == "active",
+                UserSubscription.expiry_date > datetime.now(timezone.utc)
+            ]
+
             # Query 1: Get total count
             count_result = await session.execute(
-                select(func.count(UserSubscription.id)).where(
-                    UserSubscription.role == "vip",
-                    UserSubscription.status == "active",
-                    UserSubscription.expiry_date > datetime.now(timezone.utc)
-                )
+                select(func.count(UserSubscription.id)).where(*filters)
             )
             total_count = count_result.scalar()
 
             # Query 2: Get paginated records
-            query = select(UserSubscription).where(
-                UserSubscription.role == "vip",
-                UserSubscription.status == "active",
-                UserSubscription.expiry_date > datetime.now(timezone.utc)
-            ).order_by(UserSubscription.expiry_date.asc()).offset(offset).limit(page_size)
+            query = select(UserSubscription).where(*filters).order_by(UserSubscription.expiry_date.asc()).offset(offset).limit(page_size)
 
             result = await session.execute(query)
             users = result.scalars().all()
@@ -295,7 +319,6 @@ class SubscriptionService:
         """
         try:
             # Get the bot configuration to get the VIP channel ID
-            from bot.services.config_service import ConfigService
             config = await ConfigService.get_bot_config(session)
 
             if not config.vip_channel_id:
@@ -348,6 +371,8 @@ class SubscriptionService:
                 "error": f"Database error: {str(e)}"
             }
         except Exception as e:
+            import logging
+            logging.exception(f"Unexpected error revoking VIP access for user {user_id}")
             return {
                 "success": False,
                 "error": f"Error revoking VIP access: {str(e)}"
