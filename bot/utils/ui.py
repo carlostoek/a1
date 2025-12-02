@@ -113,3 +113,34 @@ class MenuFactory:
 
         # Return markup with buttons in a single row
         return InlineKeyboardMarkup(inline_keyboard=[row])
+
+    @classmethod
+    def create_pagination_keyboard(cls, current_page: int, total_pages: int, callback_prefix: str) -> List[InlineKeyboardButton]:
+        """
+        Create a pagination keyboard with navigation controls.
+
+        Args:
+            current_page: Current page number (1-indexed)
+            total_pages: Total number of pages
+            callback_prefix: Prefix for callback data (e.g., 'vip_page')
+
+        Returns:
+            List of InlineKeyboardButton for pagination controls
+        """
+        buttons = []
+
+        # Previous page button
+        if current_page > 1:
+            prev_button = cls._create_button("⬅️", f"{callback_prefix}_{current_page - 1}")
+            buttons.append(prev_button)
+
+        # Current page / total pages indicator
+        page_info_button = cls._create_button(f"{current_page}/{total_pages}", "noop")  # noop callback for info display
+        buttons.append(page_info_button)
+
+        # Next page button
+        if current_page < total_pages:
+            next_button = cls._create_button("➡️", f"{callback_prefix}_{current_page + 1}")
+            buttons.append(next_button)
+
+        return buttons

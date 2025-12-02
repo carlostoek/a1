@@ -8,7 +8,9 @@ from aiogram import Bot
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from aiogram.exceptions import TelegramBadRequest
 from bot.database.models import (
     InvitationToken,
     UserSubscription,
@@ -236,6 +238,120 @@ class SubscriptionService:
         except SQLAlchemyError as e:
             await session.rollback()
             raise SubscriptionError(f"Database error during token redemption: {e}")
+
+    @staticmethod
+    async def get_active_vips_paginated(page: int, page_size: int, session: AsyncSession) -> tuple:
+        """
+        Get paginated list of active VIP subscribers.
+
+        Args:
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            session: Database session
+
+        Returns:
+            Tuple of (list of UserSubscription objects, total count)
+        """
+        try:
+            # Calculate offset
+            offset = (page - 1) * page_size
+
+            # Query 1: Get total count
+            count_result = await session.execute(
+                select(func.count(UserSubscription.id)).where(
+                    UserSubscription.role == "vip",
+                    UserSubscription.status == "active",
+                    UserSubscription.expiry_date > datetime.now(timezone.utc)
+                )
+            )
+            total_count = count_result.scalar()
+
+            # Query 2: Get paginated records
+            query = select(UserSubscription).where(
+                UserSubscription.role == "vip",
+                UserSubscription.status == "active",
+                UserSubscription.expiry_date > datetime.now(timezone.utc)
+            ).order_by(UserSubscription.expiry_date.asc()).offset(offset).limit(page_size)
+
+            result = await session.execute(query)
+            users = result.scalars().all()
+
+            return users, total_count
+        except SQLAlchemyError as e:
+            raise SubscriptionError(f"Error retrieving paginated VIP subscribers: {str(e)}")
+
+    @staticmethod
+    async def revoke_vip_access(user_id: int, bot, session: AsyncSession) -> dict:
+        """
+        Revoke VIP access for a user by expelling them from the VIP channel and updating their status.
+
+        Args:
+            user_id: ID of user to revoke access
+            bot: Bot instance to perform the expulsion
+            session: Database session
+
+        Returns:
+            Dictionary with success status and message
+        """
+        try:
+            # Get the bot configuration to get the VIP channel ID
+            from bot.services.config_service import ConfigService
+            config = await ConfigService.get_bot_config(session)
+
+            if not config.vip_channel_id:
+                return {
+                    "success": False,
+                    "error": "VIP channel ID not configured"
+                }
+
+            # Find the user's active subscription
+            result = await session.execute(
+                select(UserSubscription).where(
+                    UserSubscription.user_id == user_id,
+                    UserSubscription.role == "vip",
+                    UserSubscription.status == "active",
+                    UserSubscription.expiry_date > datetime.now(timezone.utc)
+                )
+            )
+            subscription = result.scalars().first()
+
+            if not subscription:
+                return {
+                    "success": False,
+                    "error": "User does not have an active VIP subscription"
+                }
+
+            # Expel the user from the VIP channel
+            try:
+                await bot.ban_chat_member(chat_id=config.vip_channel_id, user_id=user_id)
+                # Optionally unban immediately if we only want to kick (not permanently ban)
+                # await bot.unban_chat_member(chat_id=config.vip_channel_id, user_id=user_id)
+            except TelegramBadRequest as e:
+                # If user is already banned or not in the channel, continue with DB update
+                # This is acceptable since we're revoking their access anyway
+                pass
+
+            # Update the subscription status in the database
+            subscription.status = "revoked"
+            subscription.role = "free"
+
+            await session.commit()
+
+            return {
+                "success": True,
+                "message": f"VIP access revoked for user {user_id}"
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Database error: {str(e)}"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error revoking VIP access: {str(e)}"
+            }
 
     @staticmethod
     async def send_token_redemption_success(message: Message, tier: SubscriptionTier, session: AsyncSession) -> None:

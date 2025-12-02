@@ -205,6 +205,7 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     # Add additional VIP options
     options.extend([
         ("📢 Enviar Publicación", "admin_send_channel_post"),
+        ("👥 Gestionar Suscriptores", "vip_manage"),
         ("📊 Ver Stats", "vip_stats"),
         ("⚙️ Configurar", "vip_config"),
     ])
@@ -610,6 +611,146 @@ async def cancel_post_send(callback_query: CallbackQuery, state: FSMContext):
     """Cancel the post sending process."""
     await callback_query.answer("❌ Envió de publicación cancelado.", show_alert=True)
     await state.clear()
+
+
+# Callback handlers for VIP subscriber management
+@admin_router.callback_query(F.data == "vip_manage")
+async def view_subscribers_list_first_page(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
+    """Display first page of active VIP subscribers."""
+    await view_subscribers_list(callback_query, session, bot, page=1)
+
+
+@admin_router.callback_query(F.data.regexp(r"vip_page_\d+"))
+async def view_subscribers_list_page(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
+    """Display specific page of active VIP subscribers."""
+    # Extract page number from callback data
+    try:
+        page = int(callback_query.data.split("_")[2])
+    except (ValueError, IndexError):
+        page = 1
+    await view_subscribers_list(callback_query, session, bot, page=page)
+
+
+async def view_subscribers_list(callback_query: CallbackQuery, session: AsyncSession, bot: Bot, page: int = 1):
+    """Display paginated list of active VIP subscribers."""
+    # Parse page number from callback data if needed - this is now passed as parameter
+
+    # Define page size
+    PAGE_SIZE = 5
+
+    # Get paginated list of active VIPs
+    users, total_count = await SubscriptionService.get_active_vips_paginated(page, PAGE_SIZE, session)
+
+    # Calculate total pages
+    total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE if total_count > 0 else 1
+
+    # Build the menu with user list
+    text = f"**GESTIÓN DE SUSCRIPTORES VIP**\n\n"
+    text += f"Total suscriptores activos: {total_count}\n\n"
+
+    if users:
+        for user in users:
+            expiry_date = user.expiry_date.strftime("%d/%m/%Y %H:%M")
+            text += f"👤 ID: {user.user_id} | 📅 Vence: {expiry_date}\n"
+            text += f"   (Registrado: {user.join_date.strftime('%d/%m/%Y')})\n\n"
+    else:
+        text += "❌ No hay suscriptores VIP activos en esta página.\n\n"
+
+    # Create keyboard with user details buttons and pagination
+    keyboard = InlineKeyboardBuilder()
+
+    # Add buttons for each user
+    for user in users:
+        expiry_date = user.expiry_date.strftime("%d/%m")
+        keyboard.button(text=f"👤 {user.user_id} | 📅 {expiry_date}", callback_data=f"vip_user_detail_{user.user_id}")
+
+    # Add pagination controls
+    pagination_buttons = MenuFactory.create_pagination_keyboard(page, total_pages, "vip_page")
+    for button in pagination_buttons:
+        keyboard.add(button)
+
+    # Add back button
+    keyboard.button(text="⬅️ Volver", callback_data="admin_vip")
+    keyboard.adjust(1, 2)  # 1 column for user buttons, 2 for pagination
+
+    await safe_edit_message(
+        callback_query,
+        text,
+        reply_markup=keyboard.as_markup()
+    )
+
+
+@admin_router.callback_query(F.data.startswith("vip_user_detail_"))
+async def view_subscriber_detail(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
+    """Display detailed information about a specific VIP subscriber."""
+    # Extract user_id from callback data
+    try:
+        user_id = int(callback_query.data.split("_")[3])
+    except (ValueError, IndexError):
+        await callback_query.answer("❌ ID de usuario inválido", show_alert=True)
+        return
+
+    # Get user subscription details
+    result = await session.execute(
+        select(UserSubscription).where(
+            UserSubscription.user_id == user_id,
+            UserSubscription.role == "vip",
+            UserSubscription.status == "active",
+            UserSubscription.expiry_date > datetime.now(timezone.utc)
+        )
+    )
+    subscription = result.scalars().first()
+
+    if not subscription:
+        await callback_query.answer("❌ Usuario no encontrado o no tiene suscripción VIP activa", show_alert=True)
+        return
+
+    # Format the user details
+    join_date = subscription.join_date.strftime("%d/%m/%Y %H:%M")
+    expiry_date = subscription.expiry_date.strftime("%d/%m/%Y %H:%M")
+    time_left = (subscription.expiry_date - datetime.now(timezone.utc)).days
+
+    text = (
+        f"**FICHA TÉCNICA DEL USUARIO**\n\n"
+        f"👤 ID del Usuario: {subscription.user_id}\n"
+        f"📅 Fecha de Registro: {join_date}\n"
+        f"📅 Fecha de Expiración: {expiry_date}\n"
+        f"⏳ Días Restantes: {time_left} días\n"
+        f"💳 Token Usado: {subscription.token_id or 'N/A'}\n"
+    )
+
+    # Create keyboard with revoke and back buttons
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="🚫 REVOCAR ACCESO", callback_data=f"vip_revoke_confirm_{user_id}")
+    keyboard.button(text="⬅️ Volver a Lista", callback_data=f"vip_manage")
+    keyboard.adjust(1)
+
+    await safe_edit_message(
+        callback_query,
+        text,
+        reply_markup=keyboard.as_markup()
+    )
+
+
+@admin_router.callback_query(F.data.startswith("vip_revoke_confirm_"))
+async def process_revocation(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
+    """Process the revocation of VIP access for a specific user."""
+    # Extract user_id from callback data
+    try:
+        user_id = int(callback_query.data.split("_")[3])
+    except (ValueError, IndexError):
+        await callback_query.answer("❌ ID de usuario inválido", show_alert=True)
+        return
+
+    # Call the service to revoke VIP access
+    result = await SubscriptionService.revoke_vip_access(user_id, bot, session)
+
+    if result["success"]:
+        await callback_query.answer(f"✅ Usuario {user_id} expulsado y acceso revocado", show_alert=True)
+        # Refresh back to the list
+        await view_subscribers_list(callback_query, session, bot)
+    else:
+        await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
 
 
 # Callback handlers for main menu options
