@@ -188,6 +188,21 @@ Gestiona la configuración global del bot con caché en memoria.
   - **Parámetros**: `session`, `channel_type` ("vip", "free")
   - **Retorna**: Lista de reacciones para el tipo de canal especificado
 
+- **get_config_status(session)**
+  - Obtiene un resumen del estado de configuración del bot para propósitos de diagnóstico
+  - **Parámetros**: `session` (sesión de base de datos)
+  - **Retorna**:
+    ```python
+    {
+      "vip_channel_id": int (ID del canal VIP configurado) / None,
+      "free_channel_id": int (ID del canal Free configurado) / None,
+      "wait_time_minutes": int (tiempo de espera configurado),
+      "active_tiers_count": int (número de tarifas activas),
+      "vip_reactions": list (lista de reacciones para canal VIP) / [],
+      "free_reactions": list (lista de reacciones para canal Free) / []
+    }
+    ```
+
 ## Utilidades de UI
 
 ### MenuFactory

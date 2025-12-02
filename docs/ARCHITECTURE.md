@@ -94,6 +94,13 @@ El `ConfigService` implementa un patrón de caché en memoria para la configurac
 ### Servicio Compartido
 El `ConfigService` incluye métodos compartidos como `get_reactions_for_channel` para evitar duplicación de código y mejorar la consistencia.
 
+### Vista de Diagnóstico
+El `ConfigService` incluye un método `get_config_status` que proporciona una vista consolidada del estado de configuración del bot. Este método es utilizado para el dashboard de estado general que muestra:
+- Estado de los canales (VIP y Free): configurado o pendiente
+- Número de tarifas de suscripción activas
+- Tiempo de espera configurado para el canal gratuito
+- Estado de las reacciones (VIP y Free): configuradas o pendientes
+
 ## Mejoras de Código
 
 ### Seguridad de Tipos
