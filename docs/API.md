@@ -32,6 +32,28 @@ El servicio de suscripciones gestiona todo lo relacionado con tokens VIP y suscr
   - Envía mensaje de éxito y enlace de invitación al canal VIP
   - Genera un enlace de invitación único con límite de uso
 
+- **get_active_vips_paginated(page, page_size, session)**
+  - Obtiene lista paginada de suscriptores VIP activos
+  - Parámetros: `page` (número de página, 1-indexed), `page_size` (tamaño de página), `session` (sesión de base de datos)
+  - **Retorna**:
+    ```python
+    (
+      List[UserSubscription],  # Lista de suscriptores para la página actual
+      int                      # Total de suscriptores VIP activos
+    )
+    ```
+
+- **revoke_vip_access(user_id, bot, session)**
+  - Revoca el acceso VIP de un usuario expulsándolo del canal y actualizando su estado
+  - Parámetros: `user_id` (ID del usuario a revocar), `bot` (instancia del bot para expulsión), `session` (sesión de base de datos)
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,
+      "message": string (si éxito) / "error": string (si error)
+    }
+    ```
+
 ### ChannelManagementService
 
 Gestiona las solicitudes de acceso a canales y estadísticas.
@@ -178,6 +200,11 @@ Clase para crear componentes de interfaz de usuario estandarizados.
   - Crea un teclado inline con botones de reacción para posts
   - Parámetros: `channel_type` ("vip", "free"), `reactions_list` (lista de emojis)
   - Retorna: `InlineKeyboardMarkup` con botones de reacción en una sola fila
+
+- **create_pagination_keyboard(current_page, total_pages, callback_prefix)**
+  - Crea un teclado inline con controles de paginación
+  - Parámetros: `current_page` (página actual, 1-indexed), `total_pages` (número total de páginas), `callback_prefix` (prefijo para datos de callback)
+  - Retorna: `List[InlineKeyboardButton]` con botones de navegación (anterior, info de página, siguiente)
 
 ## Interacciones con la API de Telegram
 

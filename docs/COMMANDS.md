@@ -78,6 +78,19 @@
 - **Descripción**: Muestra estadísticas de suscriptores VIP
 - **Salida**: Número de usuarios VIP activos
 
+#### Gestionar Suscriptores
+- **Descripción**: Gestión completa de suscriptores VIP activos
+- **Funcionalidades**:
+  - Visualización paginada de suscriptores VIP
+  - Información detallada por usuario
+  - Revocación de acceso VIP y expulsión del canal
+- **Flujo**:
+  1. Visualización de lista paginada de suscriptores activos (5 por página)
+  2. Cada suscriptor mostrado con ID, fecha de expiración y fecha de registro
+  3. Botones para ver detalles de cada usuario
+  4. Navegación entre páginas con controles de paginación
+  5. Opción de revocar acceso desde la vista de detalles
+
 #### Configurar
 - **Descripción**: Accede a las opciones de configuración VIP
 - **Opciones disponibles**:

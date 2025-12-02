@@ -9,6 +9,7 @@ Este es un bot de administración de Telegram multifuncional que permite la gest
 - **Sistema de Suscripción VIP**: Configuración de diferentes tarifas de suscripción con duración y precios específicos
 - **Acceso a Canales**: Gestión separada de canales VIP y gratuitos
 - **Tokens de Invitación**: Generación y canje de tokens para acceso VIP
+- **Gestión de Suscriptores VIP**: Visualización paginada de suscriptores, información detallada y revocación de acceso
 - **Configuración Flexible**: Configuración de tiempos de espera, reacciones y otros parámetros
 - **Interfaz de Menú**: Navegación por menús intuitivos para administradores
 - **Sistema de Estados FSM**: Control de flujos de configuración con Máquina de Estados Finitos
@@ -76,6 +77,7 @@ El bot utiliza variables de entorno definidas en `.env`:
 - [Arquitectura](ARCHITECTURE.md) - Estructura y diseño del sistema
 - [Comandos](COMMANDS.md) - Detalles de todos los comandos y flujos
 - [API y Servicios](API.md) - Interacciones y servicios del sistema
+- [Gestión de Suscriptores VIP](VIP_SUBSCRIBER_MANAGEMENT.md) - Sistema de paginación y revocación de suscriptores VIP
 - [Modelos](MODELS.md) - Estructura de base de datos
 - [FSM](FSM.md) - Máquinas de estados para flujos de configuración
 - [Envío de Publicaciones](POST_SENDING.md) - Funcionalidad de envío de posts con reacciones

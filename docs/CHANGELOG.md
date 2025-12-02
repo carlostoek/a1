@@ -3,6 +3,7 @@
 ## [No Version] - 2025-02-11
 
 ### Added
+- Implementación de gestión de suscriptores VIP con paginación y revocación de acceso
 - Implementación de envío de publicaciones con reacciones opcionales a canales VIP y gratuitos
 - Implementación de configuración de reacciones inline personalizadas para canales VIP y gratuitos
 - Implementación de MenuFactory para UI estandarizada en menús
