@@ -2,7 +2,8 @@
 Service for managing channel requests and statistics.
 """
 import logging
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, TypedDict, NotRequired
+from aiogram import Bot
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -12,6 +13,14 @@ from aiogram.exceptions import TelegramBadRequest
 from bot.database.models import FreeChannelRequest, UserSubscription, BotConfig
 from bot.services.exceptions import ServiceError
 from bot.services.config_service import ConfigService
+from bot.utils.ui import MenuFactory
+
+
+# Type definitions for channel service return values
+class BroadcastResult(TypedDict):
+    success: bool
+    message_id: NotRequired[int]
+    error: NotRequired[str]
 
 
 class ChannelManagementService:
@@ -230,3 +239,57 @@ class ChannelManagementService:
         except SQLAlchemyError as e:
             await session.rollback()
             raise ServiceError(f"Error processing free access request: {str(e)}")
+
+    @staticmethod
+    async def broadcast_post(target_channel_type: str, message_id: int, from_chat_id: int, use_reactions: bool, bot: 'Bot', session: AsyncSession) -> BroadcastResult:
+        """
+        Send a post to the target channel with optional reactions.
+
+        Args:
+            target_channel_type: 'vip' or 'free'
+            message_id: ID of the message to be broadcasted
+            from_chat_id: Chat ID where the original message is located
+            use_reactions: Whether to add reaction buttons to the post
+            bot: Bot instance for sending messages
+            session: Database session
+
+        Returns:
+            Dictionary with success status and message
+        """
+        try:
+            # Get the target channel ID from config
+            config = await ConfigService.get_bot_config(session)
+
+            if target_channel_type == 'vip':
+                target_channel_id = config.vip_channel_id
+            elif target_channel_type == 'free':
+                target_channel_id = config.free_channel_id
+            else:
+                return {"success": False, "error": "Invalid channel type. Use 'vip' or 'free'."}
+
+            if not target_channel_id:
+                return {"success": False, "error": f"No {target_channel_type} channel ID configured."}
+
+            # Prepare the reply markup based on use_reactions flag
+            reply_markup = None
+            if use_reactions:
+                # Get the appropriate reaction list based on channel type using shared method
+                reactions_list = await ConfigService.get_reactions_for_channel(session, target_channel_type)
+
+                if reactions_list:
+                    reply_markup = MenuFactory.create_reaction_keyboard(target_channel_type, reactions_list)
+
+            # Copy the message to the target channel
+            sent_message = await bot.copy_message(
+                chat_id=target_channel_id,
+                from_chat_id=from_chat_id,
+                message_id=message_id,
+                reply_markup=reply_markup
+            )
+
+            return {"success": True, "message_id": sent_message.message_id}
+        except TelegramBadRequest as e:
+            return {"success": False, "error": f"Telegram error: {str(e)}"}
+        except Exception as e:
+            logging.exception(f"Error broadcasting post to {target_channel_type} channel")
+            return {"success": False, "error": f"Error inesperado al publicar: {str(e)}"}

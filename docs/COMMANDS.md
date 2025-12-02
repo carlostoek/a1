@@ -58,6 +58,22 @@
 - **Requisitos**: Debe existir al menos una tarifa de suscripción activa
 - **Salida**: Enlace de invitación con el token
 
+#### Enviar Publicación
+- **Descripción**: Envía una publicación al canal VIP con reacciones opcionales
+- **Flujo**:
+  1. Admin selecciona "Enviar Publicación" desde menú VIP
+  2. Proporciona contenido (texto, foto, video, etc.)
+  3. Si hay reacciones configuradas para VIP, se pregunta si incluir reacciones
+  4. Se muestra previsualización exacta del formato final
+  5. Admin confirma envío o cancela
+- **Opciones**:
+  - Si reacciones están configuradas: Seleccionar "Sí" o "No" para incluir reacciones
+  - Confirmación final con botones "Enviar" o "Cancelar"
+- **Mejoras de PR12**:
+  - Validación robusta de tipo de canal para prevenir publicación incorrecta
+  - Manejo mejorado de errores durante el proceso de envío
+  - Uso del método compartido `get_reactions_for_channel` para obtener reacciones
+
 #### Ver Stats
 - **Descripción**: Muestra estadísticas de suscriptores VIP
 - **Salida**: Número de usuarios VIP activos
@@ -70,9 +86,25 @@
 
 ### Gestión Free
 
+#### Enviar Publicación
+- **Descripción**: Envía una publicación al canal gratuito con reacciones opcionales
+- **Flujo**:
+  1. Admin selecciona "Enviar Publicación" desde menú Free
+  2. Proporciona contenido (texto, foto, video, etc.)
+  3. Si hay reacciones configuradas para Free, se pregunta si incluir reacciones
+  4. Se muestra previsualización exacta del formato final
+  5. Admin confirma envío o cancela
+- **Opciones**:
+  - Si reacciones están configuradas: Seleccionar "Sí" o "No" para incluir reacciones
+  - Confirmación final con botones "Enviar" o "Cancelar"
+- **Mejoras de PR12**:
+  - Validación robusta de tipo de canal para prevenir publicación incorrecta
+  - Manejo mejorado de errores durante el proceso de envío
+  - Uso del método compartido `get_reactions_for_channel` para obtener reacciones
+
 #### Ver Stats
 - **Descripción**: Muestra estadísticas del canal gratuito
-- **Salida**: 
+- **Salida**:
   - Solicitudes totales
   - Solicitudes pendientes
 
@@ -126,6 +158,19 @@
 
 ### Configuración de Canales
 - **Estado**: `ChannelSetupStates.waiting_channel_id_or_forward`
-- **Flujo**: 
+- **Flujo**:
   - Opción 1: Enviar ID numérico del canal
   - Opción 2: Reenviar mensaje desde el canal objetivo
+
+### Envío de Publicaciones
+- **Estados**: `PostSendingStates`
+  - `waiting_post_content`: Espera el contenido del post (texto, foto, video, etc.)
+  - `waiting_reaction_decision`: Pregunta si incluir reacciones (si están configuradas)
+  - `waiting_confirmation`: Muestra previsualización y espera confirmación
+- **Flujo**:
+  1. Admin selecciona enviar post a VIP o Free
+  2. Proporciona contenido → `waiting_post_content`
+  3. Si reacciones configuradas → `waiting_reaction_decision` (Sí/No)
+  4. Previsualización exacta del formato final
+  5. Confirmación final → `waiting_confirmation` (Enviar/Cancelar)
+  6. Envío al canal correspondiente

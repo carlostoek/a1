@@ -58,7 +58,7 @@ Los handlers están ubicados en `bot/handlers/` y son responsables de procesar l
 Ubicados en `bot/services/`, estos módulos contienen la lógica de negocio:
 
 - **subscription_service.py**: Gestión de tokens de suscripción VIP
-- **channel_service.py**: Gestión de solicitudes a canales y estadísticas
+- **channel_service.py**: Gestión de solicitudes a canales, estadísticas y envío de publicaciones
 - **config_service.py**: Gestión de configuración global del bot
 
 ### 3. Capa de Persistencia (Database)
@@ -81,6 +81,7 @@ Implementado usando Aiogram para manejar flujos de configuración como:
 - Configuración de reacciones
 - Registro de canales
 - Creación de tarifas de suscripción
+- Envío de publicaciones con reacciones opcionales
 
 ### Middleware
 Implementado para:
@@ -89,6 +90,25 @@ Implementado para:
 
 ### Singleton con Caché
 El `ConfigService` implementa un patrón de caché en memoria para la configuración del bot.
+
+### Servicio Compartido
+El `ConfigService` incluye métodos compartidos como `get_reactions_for_channel` para evitar duplicación de código y mejorar la consistencia.
+
+## Mejoras de Código
+
+### Seguridad de Tipos
+- Anotaciones de tipo completas en todos los servicios y handlers
+- Uso de TypedDict para estructuras de retorno
+- Validación de tipos en tiempo de ejecución
+
+### Manejo de Errores
+- Implementación de jerarquía de excepciones personalizadas
+- Manejo específico de errores de base de datos y API de Telegram
+- Mejora en la retroalimentación de errores al usuario
+
+### Estructura de Importación
+- Organización de importaciones siguiendo estilo PEP 8
+- Agrupación lógica de dependencias estándar, terceros y locales
 
 ## Base de Datos
 

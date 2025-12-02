@@ -24,6 +24,26 @@ class WaitTimeUpdateError(TypedDict):
 WaitTimeUpdateResult = Union[WaitTimeUpdateSuccess, WaitTimeUpdateError]
 
 
+@classmethod
+async def get_reactions_for_channel(cls, session: AsyncSession, channel_type: str) -> List[str]:
+    """
+    Get reactions list for a specific channel type.
+
+    Args:
+        session: Database session
+        channel_type: 'vip' or 'free'
+
+    Returns:
+        List of reactions for the specified channel type
+    """
+    config = await cls.get_bot_config(session)
+    if channel_type == "vip":
+        return config.vip_reactions or []
+    elif channel_type == "free":
+        return config.free_reactions or []
+    return []
+
+
 class ConfigService:
     """
     Service for managing bot configuration settings with in-memory caching.
