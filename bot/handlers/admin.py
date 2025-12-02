@@ -435,29 +435,29 @@ async def process_wait_time_input(message: Message, state: FSMContext, session: 
 
 
 # Callback handlers for post sending
-@admin_router.callback_query(F.data == "admin_send_channel_post")
-async def setup_post_start_vip(callback_query: CallbackQuery, state: FSMContext):
-    """Start the post sending flow for VIP channel."""
+@admin_router.callback_query(F.data.in_(["admin_send_channel_post", "send_to_free_channel"]))
+async def setup_post_start(callback_query: CallbackQuery, state: FSMContext):
+    """Start the post sending flow for VIP or Free channel."""
+    # Determine channel type based on callback data
+    if callback_query.data == "admin_send_channel_post":
+        channel_type = "vip"
+        message_text = (
+            "📡 Enviando publicación al Canal VIP\n\n"
+            "Por favor, envía el contenido que deseas publicar (texto, foto, video, etc.)."
+        )
+    else:  # send_to_free_channel
+        channel_type = "free"
+        message_text = (
+            "📡 Enviando publicación al Canal Free\n\n"
+            "Por favor, envía el contenido que deseas publicar (texto, foto, video, etc.)."
+        )
+
     # Store channel type in FSM context
-    await state.update_data(channel_type="vip")
+    await state.update_data(channel_type=channel_type)
     await state.set_state(PostSendingStates.waiting_post_content)
     await safe_edit_message(
         callback_query,
-        "📡 Enviando publicación al Canal VIP\n\n"
-        "Por favor, envía el contenido que deseas publicar (texto, foto, video, etc.)."
-    )
-
-
-@admin_router.callback_query(F.data == "send_to_free_channel")
-async def setup_post_start_free(callback_query: CallbackQuery, state: FSMContext):
-    """Start the post sending flow for Free channel."""
-    # Store channel type in FSM context
-    await state.update_data(channel_type="free")
-    await state.set_state(PostSendingStates.waiting_post_content)
-    await safe_edit_message(
-        callback_query,
-        "📡 Enviando publicación al Canal Free\n\n"
-        "Por favor, envía el contenido que deseas publicar (texto, foto, video, etc.)."
+        message_text
     )
 
 
@@ -469,17 +469,14 @@ async def receive_post_content(message: Message, state: FSMContext, session: Asy
 
     # Get channel type from FSM
     data = await state.get_data()
-    channel_type = data.get("channel_type", "vip")  # default to vip
+    channel_type = data.get("channel_type")
+    if not channel_type:
+        await message.reply("❌ Error: No se pudo determinar el canal de destino. Por favor, inicia el proceso de nuevo.")
+        await state.clear()
+        return
 
-    # Get the bot configuration to check for reactions
-    config = await ConfigService.get_bot_config(session)
-
-    # Get reactions list for the channel type
-    reactions_list = []
-    if channel_type == "vip":
-        reactions_list = config.vip_reactions or []
-    elif channel_type == "free":
-        reactions_list = config.free_reactions or []
+    # Get reactions list for the channel type using shared method
+    reactions_list = await ConfigService.get_reactions_for_channel(session, channel_type)
 
     # Bifurcation based on whether reactions are configured
     if reactions_list and len(reactions_list) > 0:
@@ -517,30 +514,40 @@ async def generate_preview(context, state: FSMContext, session: AsyncSession, bo
     """Generate a preview of the post with or without reactions."""
     # Get all necessary data from FSM
     data = await state.get_data()
-    message_id = data["message_id"]
-    from_chat_id = data["from_chat_id"]
+    message_id = data.get("message_id")
+    from_chat_id = data.get("from_chat_id")
     use_reactions = data.get("use_reactions", False)
-    channel_type = data.get("channel_type", "vip")
+    channel_type = data.get("channel_type")
+
+    if not all((message_id, from_chat_id, channel_type)):
+        # We can't use callback_query here since this function can be called from message handlers
+        # So we'll send an error message to the chat instead
+        error_msg = "❌ Error: La sesión ha expirado. Por favor, inicia el proceso de nuevo."
+        try:
+            if isinstance(context, CallbackQuery):
+                await context.answer(error_msg, show_alert=True)
+            else:
+                await context.reply(error_msg)
+        except:
+            # If sending message fails, just return
+            pass
+        await state.clear()
+        return
 
     # Prepare the reply markup based on use_reactions flag
     reply_markup = None
     if use_reactions:
-        config = await ConfigService.get_bot_config(session)
-        reactions_list = []
-        if channel_type == "vip":
-            reactions_list = config.vip_reactions or []
-        elif channel_type == "free":
-            reactions_list = config.free_reactions or []
+        # Get reactions list for the channel type using shared method
+        reactions_list = await ConfigService.get_reactions_for_channel(session, channel_type)
 
         if reactions_list:
-            from bot.utils.ui import MenuFactory
             reply_markup = MenuFactory.create_reaction_keyboard(channel_type, reactions_list)
 
     # Send preview to the admin (current chat)
-    admin_chat_id = context.from_user.id if hasattr(context, 'from_user') else None
-    if not admin_chat_id:
-        # If we're in a message handler, admin_chat_id should be message.chat.id
-        admin_chat_id = context.chat.id if hasattr(context, 'chat') else context.message.chat.id
+    if isinstance(context, CallbackQuery):
+        admin_chat_id = context.message.chat.id
+    else:  # Assumes Message type
+        admin_chat_id = context.chat.id
 
     try:
         # Copy the message to the admin as a preview
@@ -550,10 +557,10 @@ async def generate_preview(context, state: FSMContext, session: AsyncSession, bo
             message_id=message_id,
             reply_markup=reply_markup
         )
-    except Exception:
+    except TelegramBadRequest as e:
         # If we can't copy the message, we need to handle it differently
         # For now, let's just send a text message for preview
-        preview_text = f"Previsualización: Mensaje ID {message_id} de chat {from_chat_id}"
+        preview_text = f"No se pudo generar la previsualización ({e}). Mensaje ID {message_id} de chat {from_chat_id}"
         await bot.send_message(admin_chat_id, preview_text)
 
     # Send confirmation menu

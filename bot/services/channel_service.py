@@ -2,7 +2,8 @@
 Service for managing channel requests and statistics.
 """
 import logging
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, TypedDict, NotRequired
+from aiogram import Bot
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -12,6 +13,14 @@ from aiogram.exceptions import TelegramBadRequest
 from bot.database.models import FreeChannelRequest, UserSubscription, BotConfig
 from bot.services.exceptions import ServiceError
 from bot.services.config_service import ConfigService
+from bot.utils.ui import MenuFactory
+
+
+# Type definitions for channel service return values
+class BroadcastResult(TypedDict):
+    success: bool
+    message_id: NotRequired[int]
+    error: NotRequired[str]
 
 
 class ChannelManagementService:
@@ -232,7 +241,7 @@ class ChannelManagementService:
             raise ServiceError(f"Error processing free access request: {str(e)}")
 
     @staticmethod
-    async def broadcast_post(target_channel_type: str, message_id: int, from_chat_id: int, use_reactions: bool, bot, session: AsyncSession) -> dict:
+    async def broadcast_post(target_channel_type: str, message_id: int, from_chat_id: int, use_reactions: bool, bot: 'Bot', session: AsyncSession) -> BroadcastResult:
         """
         Send a post to the target channel with optional reactions.
 
@@ -264,15 +273,10 @@ class ChannelManagementService:
             # Prepare the reply markup based on use_reactions flag
             reply_markup = None
             if use_reactions:
-                # Get the appropriate reaction list based on channel type
-                if target_channel_type == 'vip':
-                    reactions_list = config.vip_reactions or []
-                elif target_channel_type == 'free':
-                    reactions_list = config.free_reactions or []
+                # Get the appropriate reaction list based on channel type using shared method
+                reactions_list = await ConfigService.get_reactions_for_channel(session, target_channel_type)
 
                 if reactions_list:
-                    # Import the create_reaction_keyboard method
-                    from bot.utils.ui import MenuFactory
                     reply_markup = MenuFactory.create_reaction_keyboard(target_channel_type, reactions_list)
 
             # Copy the message to the target channel
@@ -287,4 +291,5 @@ class ChannelManagementService:
         except TelegramBadRequest as e:
             return {"success": False, "error": f"Telegram error: {str(e)}"}
         except Exception as e:
-            return {"success": False, "error": f"Error broadcasting post: {str(e)}"}
+            logging.exception(f"Error broadcasting post to {target_channel_type} channel")
+            return {"success": False, "error": f"Error inesperado al publicar: {str(e)}"}
