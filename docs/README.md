@@ -80,5 +80,6 @@ El bot utiliza variables de entorno definidas en `.env`:
 - [Gestión de Suscriptores VIP](VIP_SUBSCRIBER_MANAGEMENT.md) - Sistema de paginación y revocación de suscriptores VIP
 - [Modelos](MODELS.md) - Estructura de base de datos
 - [FSM](FSM.md) - Máquinas de estados para flujos de configuración
+- [Servicio de Estadísticas](STATS_SERVICE.md) - Dashboard y métricas del bot
 - [Envío de Publicaciones](POST_SENDING.md) - Funcionalidad de envío de posts con reacciones
 - [Historial de Cambios](CHANGELOG.md) - Registro de versiones y cambios
