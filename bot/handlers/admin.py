@@ -211,6 +211,7 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         ("📢 Enviar Publicación", "admin_send_channel_post"),
         ("👥 Gestionar Suscriptores", "vip_manage"),
         ("📊 Ver Stats", "vip_stats"),
+        ("💰 Configurar Tarifas", "config_tiers"),  # Added as per specification
         ("⚙️ Configurar", "vip_config"),
     ])
 
@@ -240,6 +241,7 @@ async def admin_free(callback_query: CallbackQuery):
     free_options = [
         ("📢 Enviar Publicación", "send_to_free_channel"),
         ("📊 Ver Stats", "free_stats"),
+        ("⚡ Procesar Pendientes", "process_pending_now"),  # Added as per specification
         ("⚙️ Configurar", "free_config"),
     ]
 
@@ -707,6 +709,23 @@ async def cancel_post_send(callback_query: CallbackQuery, state: FSMContext):
     """Cancel the post sending process."""
     await callback_query.answer("❌ Envió de publicación cancelado.", show_alert=True)
     await state.clear()
+
+
+@admin_router.callback_query(F.data == "process_pending_now")
+async def process_pending_requests_now(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
+    """Manually trigger the processing of all pending free channel requests."""
+    try:
+        # Process all pending requests using the service method
+        result = await ChannelManagementService.process_pending_requests(session, bot)
+
+        if result["success"]:
+            # Display the result message showing how many were processed
+            await callback_query.answer(result["message"], show_alert=True)
+        else:
+            # Display error message if the operation failed
+            await callback_query.answer(f"❌ Error al procesar solicitudes: {result['error']}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error al procesar solicitudes pendientes: {str(e)}", show_alert=True)
 
 
 # Callback handlers for VIP subscriber management

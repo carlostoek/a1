@@ -241,6 +241,140 @@ class ChannelManagementService:
             raise ServiceError(f"Error processing free access request: {str(e)}")
 
     @staticmethod
+    async def process_pending_requests(session: AsyncSession, bot: 'Bot') -> Dict[str, Any]:
+        """
+        Process all pending free channel requests by approving them.
+
+        Args:
+            session: Database session
+            bot: Bot instance for sending messages
+
+        Returns:
+            Dictionary with success status and summary of processed requests
+        """
+        try:
+            # Get all pending requests
+            pending_requests = await ChannelManagementService.get_pending_requests(session)
+
+            if not pending_requests:
+                return {
+                    "success": True,
+                    "processed_count": 0,
+                    "message": "No pending requests to process"
+                }
+
+            processed_count = 0
+            errors = []
+
+            for request in pending_requests:
+                try:
+                    # Approve the individual request
+                    result = await ChannelManagementService.approve_request(
+                        request_id=request.id,
+                        session=session,
+                        bot=bot
+                    )
+                    if result["success"]:
+                        processed_count += 1
+                    else:
+                        errors.append(f"Request {request.id}: {result['error']}")
+                except Exception as e:
+                    errors.append(f"Request {request.id}: {str(e)}")
+
+            summary_message = f"Processed {processed_count}/{len(pending_requests)} pending requests"
+            if errors:
+                summary_message += f"; {len(errors)} errors occurred"
+
+            return {
+                "success": True,
+                "processed_count": processed_count,
+                "errors": errors,
+                "message": summary_message
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "processed_count": 0,
+                "error": f"Error processing pending requests: {str(e)}"
+            }
+
+    @staticmethod
+    async def approve_request(request_id: int, session: AsyncSession, bot: 'Bot') -> Dict[str, Any]:
+        """
+        Approve a specific free channel request and grant access to the user.
+
+        Args:
+            request_id: ID of the request to approve
+            session: Database session
+            bot: Bot instance for sending messages
+
+        Returns:
+            Dictionary with success status and message
+        """
+        try:
+            # Get the specific request
+            result = await session.execute(
+                select(FreeChannelRequest).where(
+                    FreeChannelRequest.id == request_id,
+                    FreeChannelRequest.processed.is_(False)
+                )
+            )
+            request = result.scalars().first()
+
+            if not request:
+                return {
+                    "success": False,
+                    "error": "Request not found or already processed"
+                }
+
+            # Get the bot configuration to get the free channel ID
+            config = await ConfigService.get_bot_config(session)
+            if not config.free_channel_id:
+                return {
+                    "success": False,
+                    "error": "Free channel ID not configured"
+                }
+
+            # Grant access to the user by sending the channel invite link
+            try:
+                # Create an invite link for the free channel
+                invite_link = await bot.create_chat_invite_link(
+                    chat_id=config.free_channel_id,
+                    member_limit=1,  # Single use invite
+                    expire_date=datetime.now(timezone.utc) + timedelta(hours=24)  # Expire in 24 hours
+                )
+
+                # Send the invite to the user
+                await bot.send_message(
+                    chat_id=request.user_id,
+                    text=(
+                        "🎉 ¡Tu acceso ha sido aprobado!\n\n"
+                        f"Únete al canal gratuito usando este enlace: {invite_link.invite_link}"
+                    )
+                )
+            except Exception as e:
+                # If sending invite fails, still mark request as processed but with error
+                pass
+
+            # Mark the request as processed and approved
+            request.processed = True
+            request.approved = True
+            request.processed_date = datetime.now(timezone.utc)
+
+            await session.commit()
+
+            return {
+                "success": True,
+                "message": f"Request {request_id} approved successfully"
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Database error: {str(e)}"
+            }
+
+    @staticmethod
     async def broadcast_post(target_channel_type: str, message_id: int, from_chat_id: int, use_reactions: bool, bot: 'Bot', session: AsyncSession) -> BroadcastResult:
         """
         Send a post to the target channel with optional reactions.
