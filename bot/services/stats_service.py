@@ -1,13 +1,15 @@
 """
 Service for retrieving and aggregating statistics for the Telegram Admin Bot.
 """
+import asyncio
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func
 from sqlalchemy.future import select
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from bot.database.models import UserSubscription, InvitationToken, FreeChannelRequest
 from bot.services.config_service import ConfigService
+from bot.services.exceptions import ServiceError
 
 
 class StatsService:
@@ -27,35 +29,30 @@ class StatsService:
             Dictionary containing general stats
         """
         try:
-            # Count total distinct users registered in UserSubscription
-            total_users_result = await session.execute(
-                select(func.count(func.distinct(UserSubscription.user_id)))
+            # Run all count queries concurrently for better performance
+            results = await asyncio.gather(
+                session.execute(
+                    select(func.count(func.distinct(UserSubscription.user_id)))
+                ),
+                session.execute(
+                    select(func.count(UserSubscription.id)).where(
+                        UserSubscription.role == "vip",
+                        UserSubscription.status == "active"
+                    )
+                ),
+                session.execute(
+                    select(func.count(UserSubscription.id)).where(
+                        UserSubscription.role == "vip",
+                        UserSubscription.status.in_(["expired", "revoked"]),
+                    )
+                ),
+                session.execute(select(func.count(InvitationToken.id))),
             )
-            total_users = total_users_result.scalar() or 0
 
-            # Count total active VIP subscribers
-            active_vip_result = await session.execute(
-                select(func.count(UserSubscription.id)).where(
-                    UserSubscription.role == "vip",
-                    UserSubscription.status == "active"
-                )
-            )
-            active_vip = active_vip_result.scalar() or 0
-
-            # Count total expired or revoked VIP subscribers
-            expired_revoked_vip_result = await session.execute(
-                select(func.count(UserSubscription.id)).where(
-                    UserSubscription.role == "vip",
-                    UserSubscription.status.in_(["expired", "revoked"])
-                )
-            )
-            expired_revoked_vip = expired_revoked_vip_result.scalar() or 0
-
-            # Count total invitation tokens generated
-            total_tokens_result = await session.execute(
-                select(func.count(InvitationToken.id))
-            )
-            total_tokens_generated = total_tokens_result.scalar() or 0
+            total_users = results[0].scalar() or 0
+            active_vip = results[1].scalar() or 0
+            expired_revoked_vip = results[2].scalar() or 0
+            total_tokens_generated = results[3].scalar() or 0
 
             # Placeholder for revenue: total_revenue = 0.00
             total_revenue = 0.00
@@ -68,8 +65,9 @@ class StatsService:
                 "tokens_generated": total_tokens_generated,
                 "total_revenue": total_revenue
             }
-        except Exception as e:
-            raise Exception(f"Error retrieving general stats: {str(e)}")
+        except SQLAlchemyError as e:
+            # Catch specific DB errors and raise a custom service exception
+            raise ServiceError(f"Error retrieving general stats: {str(e)}")
 
     @staticmethod
     async def get_vip_stats(session: AsyncSession) -> Dict[str, Any]:
@@ -83,33 +81,16 @@ class StatsService:
             Dictionary containing VIP stats
         """
         try:
-            # Count VIPs active per SubscriptionTier
-            from bot.services.config_service import ConfigService
-            tiers = await ConfigService.get_all_tiers(session)
-
-            # Initialize dictionary with tier IDs and zero counts
-            tier_counts = {}
-            for tier in tiers:
-                if tier.is_active:  # Only count active tiers
-                    tier_count_result = await session.execute(
-                        select(func.count(UserSubscription.id)).where(
-                            UserSubscription.role == "vip",
-                            UserSubscription.status == "active",
-                            UserSubscription.token_id == tier.id  # This might need adjustment depending on the data model
-                        )
-                    )
-                    tier_counts[tier.id] = tier_count_result.scalar() or 0
-
-            # Actually, let's count using the token relationship to get tier-based stats
-            # Get all active subscriptions and group by token_id which corresponds to tier_id
-            active_subscriptions_result = await session.execute(
+            # Count VIP subscriptions grouped by token_id which corresponds to tier_id
+            result = await session.execute(
                 select(UserSubscription.token_id, func.count(UserSubscription.id)).where(
                     UserSubscription.role == "vip",
                     UserSubscription.status == "active",
                     UserSubscription.token_id.isnot(None)
                 ).group_by(UserSubscription.token_id)
             )
-            tier_counts = dict(active_subscriptions_result.all())
+            active_subscriptions = result.all()
+            tier_counts = dict(active_subscriptions) if active_subscriptions else {}
 
             # Count total invitation tokens redeemed
             redeemed_tokens_result = await session.execute(
@@ -135,8 +116,9 @@ class StatsService:
                 "tokens_redeemed": total_tokens_redeemed,
                 "tokens_expired_unused": total_expired_tokens
             }
-        except Exception as e:
-            raise Exception(f"Error retrieving VIP stats: {str(e)}")
+        except SQLAlchemyError as e:
+            # Catch specific DB errors and raise a custom service exception
+            raise ServiceError(f"Error retrieving VIP stats: {str(e)}")
 
     @staticmethod
     async def get_free_channel_stats(session: AsyncSession) -> Dict[str, Any]:
@@ -182,5 +164,6 @@ class StatsService:
                 "processed_count": processed_count,
                 "rejected_count": rejected_count
             }
-        except Exception as e:
-            raise Exception(f"Error retrieving free channel stats: {str(e)}")
+        except SQLAlchemyError as e:
+            # Catch specific DB errors and raise a custom service exception
+            raise ServiceError(f"Error retrieving free channel stats: {str(e)}")

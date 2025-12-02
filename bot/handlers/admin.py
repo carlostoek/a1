@@ -308,8 +308,9 @@ async def view_general_stats(callback_query: CallbackQuery, session: AsyncSessio
             text,
             reply_markup=keyboard.as_markup()
         )
-    except Exception as e:
-        await callback_query.answer(f"Error al obtener estadísticas generales: {str(e)}", show_alert=True)
+    except ServiceError as e:
+        # Log the error for debugging: logger.error(f"Error al obtener estadísticas generales: {e}")
+        await callback_query.answer("Ocurrió un error al obtener las estadísticas generales.", show_alert=True)
 
 
 @admin_router.callback_query(F.data == "stats_vip")
@@ -346,8 +347,9 @@ async def view_vip_stats(callback_query: CallbackQuery, session: AsyncSession):
             text,
             reply_markup=keyboard.as_markup()
         )
-    except Exception as e:
-        await callback_query.answer(f"Error al obtener estadísticas VIP: {str(e)}", show_alert=True)
+    except ServiceError as e:
+        # Log the error for debugging: logger.error(f"Error al obtener estadísticas VIP: {e}")
+        await callback_query.answer("Ocurrió un error al obtener las estadísticas VIP.", show_alert=True)
 
 
 @admin_router.callback_query(F.data == "stats_free")
@@ -375,8 +377,9 @@ async def view_free_stats(callback_query: CallbackQuery, session: AsyncSession):
             text,
             reply_markup=keyboard.as_markup()
         )
-    except Exception as e:
-        await callback_query.answer(f"Error al obtener estadísticas FREE: {str(e)}", show_alert=True)
+    except ServiceError as e:
+        # Log the error for debugging: logger.error(f"Error al obtener estadísticas FREE: {e}")
+        await callback_query.answer("Ocurrió un error al obtener las estadísticas FREE.", show_alert=True)
 
 
 # Callback handlers for VIP menu options
