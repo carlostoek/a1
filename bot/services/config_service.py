@@ -86,6 +86,24 @@ class ConfigService:
                 raise ConfigError(f"Error retrieving bot configuration: {str(e)}")
 
     @classmethod
+    async def count_active_tiers(cls, session: AsyncSession) -> int:
+        """
+        Count the number of active subscription tiers.
+
+        Args:
+            session: Database session
+
+        Returns:
+            Number of active subscription tiers
+        """
+        try:
+            # Import here to avoid circular dependency issues
+            tiers = await cls.get_all_tiers(session)
+            return len(tiers)
+        except SQLAlchemyError as e:
+            raise ConfigError(f"Error counting active subscription tiers: {str(e)}")
+
+    @classmethod
     async def get_config_status(cls, session: AsyncSession) -> dict:
         """
         Get a summary status of the bot configuration for diagnostic purposes.
@@ -100,9 +118,8 @@ class ConfigService:
             # Get the bot configuration
             config = await cls.get_bot_config(session)
 
-            # Count active subscription tiers using the SubscriptionService
-            from bot.services.subscription_service import SubscriptionService
-            active_tiers_count = await SubscriptionService.count_active_tiers(session)
+            # Count active subscription tiers
+            active_tiers_count = await cls.count_active_tiers(session)
 
             # Create and return status dictionary
             status = {

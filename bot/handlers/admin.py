@@ -769,12 +769,12 @@ async def admin_config(callback_query: CallbackQuery, session: AsyncSession):
     vip_channel_status = "✅" if config_status["vip_channel_id"] else "❌"
     free_channel_status = "✅" if config_status["free_channel_id"] else "❌"
     tier_status = "✅" if config_status["active_tiers_count"] > 0 else "❌"
-    vip_reactions_status = "✅" if config_status["vip_reactions"] and len(config_status["vip_reactions"]) > 0 else "❌"
-    free_reactions_status = "✅" if config_status["free_reactions"] and len(config_status["free_reactions"]) > 0 else "❌"
+    vip_reactions_status = "✅" if config_status["vip_reactions"] else "❌"
+    free_reactions_status = "✅" if config_status["free_reactions"] else "❌"
 
     # Format reaction emojis for display
-    vip_reactions_display = ", ".join(config_status.get("vip_reactions", [])) if config_status.get("vip_reactions") else "Pendiente"
-    free_reactions_display = ", ".join(config_status.get("free_reactions", [])) if config_status.get("free_reactions") else "Pendiente"
+    vip_reactions_display = ", ".join(config_status["vip_reactions"]) if config_status["vip_reactions"] else "Pendiente"
+    free_reactions_display = ", ".join(config_status["free_reactions"]) if config_status["free_reactions"] else "Pendiente"
 
     # Build the report text
     report_text = (
