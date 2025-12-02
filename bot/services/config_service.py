@@ -24,26 +24,6 @@ class WaitTimeUpdateError(TypedDict):
 WaitTimeUpdateResult = Union[WaitTimeUpdateSuccess, WaitTimeUpdateError]
 
 
-@classmethod
-async def get_reactions_for_channel(cls, session: AsyncSession, channel_type: str) -> List[str]:
-    """
-    Get reactions list for a specific channel type.
-
-    Args:
-        session: Database session
-        channel_type: 'vip' or 'free'
-
-    Returns:
-        List of reactions for the specified channel type
-    """
-    config = await cls.get_bot_config(session)
-    if channel_type == "vip":
-        return config.vip_reactions or []
-    elif channel_type == "free":
-        return config.free_reactions or []
-    return []
-
-
 class ConfigService:
     """
     Service for managing bot configuration settings with in-memory caching.
@@ -301,6 +281,25 @@ class ConfigService:
             }
 
     @classmethod
+    async def get_reactions_for_channel(cls, session: AsyncSession, channel_type: str) -> List[str]:
+        """
+        Get reactions list for a specific channel type.
+
+        Args:
+            session: Database session
+            channel_type: 'vip' or 'free'
+
+        Returns:
+            List of reactions for the specified channel type
+        """
+        config = await cls.get_bot_config(session)
+        if channel_type == "vip":
+            return config.vip_reactions or []
+        elif channel_type == "free":
+            return config.free_reactions or []
+        return []
+
+    @classmethod
     async def setup_reactions(cls, channel_type: str, reactions_str: str, session: AsyncSession) -> List[str]:
         """
         Parse, validate, and store emoji reactions for a specific channel type.
@@ -339,3 +338,67 @@ class ConfigService:
         except SQLAlchemyError as e:
             await session.rollback()
             raise ConfigError(f"Error guardando reacciones: {str(e)}")
+
+    @classmethod
+    async def toggle_content_protection(cls, session: AsyncSession, channel_type: str, enable: bool) -> Dict[str, Any]:
+        """
+        Toggle content protection for a specific channel type.
+
+        Args:
+            session: Database session
+            channel_type: 'vip' or 'free'
+            enable: Whether to enable or disable content protection
+
+        Returns:
+            Dictionary with operation result
+        """
+        try:
+            config = await cls.get_bot_config(session)
+
+            if channel_type == "vip":
+                config.vip_content_protection = enable
+            elif channel_type == "free":
+                config.free_content_protection = enable
+            else:
+                return {
+                    "success": False,
+                    "error": "Invalid channel type. Use 'vip' or 'free'."
+                }
+
+            await session.commit()
+
+            # Update the cached config
+            cls._config_cache = config
+
+            return {
+                "success": True,
+                "channel_type": channel_type,
+                "enabled": enable
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Error updating content protection: {str(e)}"
+            }
+
+    @classmethod
+    async def get_content_protection_status(cls, session: AsyncSession, channel_type: str) -> bool:
+        """
+        Get content protection status for a specific channel type.
+
+        Args:
+            session: Database session
+            channel_type: 'vip' or 'free'
+
+        Returns:
+            Current protection status for the channel
+        """
+        config = await cls.get_bot_config(session)
+
+        if channel_type == "vip":
+            return config.vip_content_protection
+        elif channel_type == "free":
+            return config.free_content_protection
+        else:
+            return False
