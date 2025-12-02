@@ -2,7 +2,7 @@
 
 ## Descripción General
 
-El sistema de envío de publicaciones permite a los administradores enviar contenido a los canales VIP y gratuito con la opción de incluir botones de reacción. El sistema implementa una verificación previa para determinar si hay reacciones configuradas para el canal correspondiente y pregunta al administrador si desea incluirlas.
+El sistema de envío de publicaciones permite a los administradores enviar contenido a los canales VIP y gratuito con la opción de incluir botones de reacción. El sistema implementa una verificación previa para determinar si hay reacciones configuradas para el canal correspondiente y pregunta al administrador si desea incluirlas. El flujo incluye mejoras en el manejo de errores, validación de tipos y seguridad de tipos.
 
 ## Características
 
@@ -11,6 +11,9 @@ El sistema de envío de publicaciones permite a los administradores enviar conte
 - **Previsualización exacta**: Muestra una vista previa del formato final antes de enviar
 - **Flujo de confirmación**: Botones de "Enviar" o "Cancelar" para confirmar la acción
 - **Soporte multimedia**: Acepta texto, fotos, videos y otros tipos de contenido
+- **Validación de tipo de canal**: Verificación robusta para prevenir publicación en canal incorrecto
+- **Manejo mejorado de errores**: Control de errores específico en cada paso del proceso
+- **Seguridad de tipos**: Anotaciones de tipo completas para prevenir errores de tipo
 
 ## Flujos de Usuario
 
@@ -22,7 +25,7 @@ El sistema de envío de publicaciones permite a los administradores enviar conte
 4. Sistema verifica si hay reacciones configuradas para VIP:
    - Si hay reacciones: Pregunta "¿Deseas añadir los botones de reacción a esta publicación?" con opciones Sí/No
    - Si no hay reacciones: Continúa directamente al paso de previsualización
-5. Si se selecciona "Sí" para reacciones: Sistema prepara botones de reacción
+5. Si se selecciona "Sí" para reacciones: Sistema prepara botones de reacción usando el método compartido `get_reactions_for_channel`
 6. Sistema muestra previsualización exacta del formato final al administrador
 7. Sistema presenta botones de confirmación: "Enviar" o "Cancelar"
 8. Si se selecciona "Enviar": Publicación se envía al canal VIP con reacciones si se incluyeron
@@ -36,7 +39,7 @@ El sistema de envío de publicaciones permite a los administradores enviar conte
 4. Sistema verifica si hay reacciones configuradas para Free:
    - Si hay reacciones: Pregunta "¿Deseas añadir los botones de reacción a esta publicación?" con opciones Sí/No
    - Si no hay reacciones: Continúa directamente al paso de previsualización
-5. Si se selecciona "Sí" para reacciones: Sistema prepara botones de reacción
+5. Si se selecciona "Sí" para reacciones: Sistema prepara botones de reacción usando el método compartido `get_reactions_for_channel`
 6. Sistema muestra previsualización exacta del formato final al administrador
 7. Sistema presenta botones de confirmación: "Enviar" o "Cancelar"
 8. Si se selecciona "Enviar": Publicación se envía al canal Free con reacciones si se incluyeron

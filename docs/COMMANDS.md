@@ -69,6 +69,10 @@
 - **Opciones**:
   - Si reacciones están configuradas: Seleccionar "Sí" o "No" para incluir reacciones
   - Confirmación final con botones "Enviar" o "Cancelar"
+- **Mejoras de PR12**:
+  - Validación robusta de tipo de canal para prevenir publicación incorrecta
+  - Manejo mejorado de errores durante el proceso de envío
+  - Uso del método compartido `get_reactions_for_channel` para obtener reacciones
 
 #### Ver Stats
 - **Descripción**: Muestra estadísticas de suscriptores VIP
@@ -93,6 +97,10 @@
 - **Opciones**:
   - Si reacciones están configuradas: Seleccionar "Sí" o "No" para incluir reacciones
   - Confirmación final con botones "Enviar" o "Cancelar"
+- **Mejoras de PR12**:
+  - Validación robusta de tipo de canal para prevenir publicación incorrecta
+  - Manejo mejorado de errores durante el proceso de envío
+  - Uso del método compartido `get_reactions_for_channel` para obtener reacciones
 
 #### Ver Stats
 - **Descripción**: Muestra estadísticas del canal gratuito

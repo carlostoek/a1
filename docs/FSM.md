@@ -121,6 +121,8 @@ admin → vip_config_reactions/free_config_reactions
 - Limpieza de estado en caso de error
 - Mensajes de error específicos para cada tipo de entrada inválida
 - Verificación de permisos de administrador en cada paso del flujo
+- Manejo robusto de excepciones con retroalimentación al usuario
+- Validación de tipos de canal para prevenir operaciones incorrectas
 
 ## Limpieza de Estados
 

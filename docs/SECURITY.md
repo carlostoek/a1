@@ -120,6 +120,13 @@ La lista de IDs de administradores se configura en la variable de entorno `ADMIN
 - **Validación de entradas**: Verificación antes de procesar datos
 - **Escapado de salidas**: Protección contra XSS en mensajes HTML
 
+### Mejoras de Seguridad de PR12
+
+- **Jerarquía de excepciones personalizadas**: Implementación de excepciones específicas para diferentes tipos de errores
+- **Validación robusta de tipos de canal**: Verificación para prevenir operaciones en canales incorrectos
+- **Manejo seguro de errores de base de datos**: Rollback automático en caso de errores de transacción
+- **Mejora en la retroalimentación de errores**: Mensajes específicos que ayudan a los administradores a resolver problemas
+
 ## Seguridad en Canales
 
 ### Verificación de Acceso

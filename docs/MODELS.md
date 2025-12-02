@@ -137,6 +137,12 @@ Registra solicitudes de acceso gratuito al canal.
 - Se han definido índices en campos de consulta frecuente para optimizar rendimiento
 - Índices compuestos para consultas con múltiples condiciones
 
+### Mejoras de Seguridad de PR12
+
+- **Validación de tipos de canal**: Verificación adicional en `BotConfig` para asegurar que los tipos de canal sean válidos ('vip' o 'free')
+- **Anotaciones de tipo mejoradas**: Tipos específicos para campos de reacciones y otros valores configurables
+- **Manejo seguro de valores nulos**: Validación adicional para campos opcionales
+
 ## Zonas Horarias
 
 - Todas las fechas se almacenan en UTC para consistencia

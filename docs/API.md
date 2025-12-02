@@ -161,6 +161,11 @@ Gestiona la configuración global del bot con caché en memoria.
   - **Parámetros**: `channel_type` ("vip", "free"), `reactions_str`, `session`
   - **Retorna**: Lista de emojis configurados
 
+- **get_reactions_for_channel(session, channel_type)**
+  - Obtiene la lista de reacciones para un tipo de canal específico
+  - **Parámetros**: `session`, `channel_type` ("vip", "free")
+  - **Retorna**: Lista de reacciones para el tipo de canal especificado
+
 ## Utilidades de UI
 
 ### MenuFactory
