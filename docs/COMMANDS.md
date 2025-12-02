@@ -97,6 +97,14 @@
   - Ver estadísticas
   - Configurar reacciones inline
 
+#### Configurar Tarifas
+- **Descripción**: Accede a la gestión de tarifas de suscripción VIP
+- **Funcionalidades**:
+  - Ver lista de tarifas existentes
+  - Crear nueva tarifa
+  - Editar tarifas existentes
+  - Eliminar tarifas (desactivar)
+
 ### Gestión Free
 
 #### Enviar Publicación
@@ -127,6 +135,15 @@
   - Ver estadísticas
   - Configurar reacciones inline
   - Configurar tiempo de espera
+
+#### Procesar Pendientes
+- **Descripción**: Procesa manualmente todas las solicitudes pendientes de acceso gratuito
+- **Flujo**:
+  1. Admin selecciona "Procesar Pendientes" desde menú Free
+  2. El sistema aprueba todas las solicitudes pendientes
+  3. Se envían enlaces de invitación individuales a cada usuario
+  4. Se actualiza el estado de las solicitudes como procesadas
+- **Funcionalidad**: Aprobación masiva de solicitudes en espera
 
 ### Configuración
 
@@ -217,3 +234,8 @@
   4. Previsualización exacta del formato final
   5. Confirmación final → `waiting_confirmation` (Enviar/Cancelar)
   6. Envío al canal correspondiente
+
+### Procesamiento de Solicitudes Pendientes
+- **Callback**: `process_pending_now`
+- **Descripción**: Callback para procesar manualmente todas las solicitudes pendientes de acceso gratuito
+- **Funcionalidad**: Aprobar todas las solicitudes pendientes de forma masiva y enviar enlaces de invitación individuales a los usuarios

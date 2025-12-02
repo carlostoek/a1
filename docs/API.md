@@ -128,6 +128,30 @@ Gestiona las solicitudes de acceso a canales y estadísticas.
     }
     ```
 
+- **process_pending_requests(session, bot)**
+  - Procesa todas las solicitudes pendientes de acceso gratuito aprobándolas
+  - Parámetros: `session` (sesión de base de datos), `bot` (instancia del bot para enviar mensajes)
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,
+      "processed_count": int,              # Número de solicitudes procesadas
+      "errors": list (opcional),           # Lista de errores si ocurrieron
+      "message": string                    # Mensaje resumen del procesamiento
+    }
+    ```
+
+- **approve_request(request_id, session, bot)**
+  - Aprueba una solicitud específica de acceso gratuito y otorga acceso al usuario
+  - Parámetros: `request_id` (ID de la solicitud), `session` (sesión de base de datos), `bot` (instancia del bot para enviar mensajes)
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,
+      "message": string (si éxito) / "error": string (si error)
+    }
+    ```
+
 ### ConfigService
 
 Gestiona la configuración global del bot con caché en memoria.

@@ -20,6 +20,12 @@
 - Base de datos con SQLAlchemy y modelos ORM
 - Estados FSM para flujos de configuración
 - Servicios de suscripción, canales y configuración
+- Funcionalidad de procesamiento masivo de solicitudes pendientes de acceso gratuito
+- Opción "Configurar Tarifas" en menú VIP para gestión directa de tarifas
+- Callback `process_pending_now` para procesamiento manual de solicitudes pendientes
+- Método `process_pending_requests` en ChannelManagementService para aprobación masiva
+- Método `approve_request` en ChannelManagementService para aprobación individual
+- Documentación detallada de la estructura de menús en MENU_STRUCTURE.md
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones
