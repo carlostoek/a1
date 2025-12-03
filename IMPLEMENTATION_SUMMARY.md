@@ -77,6 +77,14 @@
 - Proper service layer separation
 - Backward compatibility preservation
 - Comprehensive error handling
+- Implemented ServiceContainer for dependency injection
+
+### Dependency Injection System
+- ServiceContainer class manages instantiation and access to all services as singletons
+- Provides convenient property accessors for core services (config, notify, subs, stats, channel_manager)
+- Includes dependency resolver function and Services type annotation for Aiogram 3
+- Services are now accessed through the container instead of direct imports in handlers
+- Refactored admin handlers to use Services annotation instead of individual service injection
 
 ### Documentation
 - Integration guide created
