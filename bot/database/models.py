@@ -71,6 +71,7 @@ class FreeChannelRequest(Base):
     __table_args__ = (Index("idx_user_request_date", "user_id", "request_date"),)
 
 
+# Update the existing Rank class to add reward fields (modifying the original class)
 class Rank(Base):
     __tablename__ = "gamification_ranks"
 
@@ -79,10 +80,40 @@ class Rank(Base):
     min_points: Mapped[int] = mapped_column(Integer, unique=True)  # Puntos para alcanzarlo
     reward_description: Mapped[str] = mapped_column(String(200), nullable=True)  # Texto descriptivo de recompensa
 
+    # Nuevos campos para recompensas (añadidos según la especificación)
+    # Recompensa 1: Días VIP
+    reward_vip_days: Mapped[int] = mapped_column(Integer, default=0)
+    # Recompensa 2: Pack de Contenido
+    reward_content_pack_id: Mapped[Optional[int]] = mapped_column(ForeignKey("reward_content_packs.id"), nullable=True)
+
     # Índices para búsquedas rápidas al calcular nivel
     __table_args__ = (
         Index('idx_rank_points', 'min_points'),
     )
+
+
+class RewardContentPack(Base):
+    __tablename__ = "reward_content_packs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)  # Ej: "Pack de Bienvenida", "Set Exclusivo Octubre"
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relación inversa (para saber qué archivos tiene)
+    # files = relationship("RewardContentFile", back_populates="pack", cascade="all, delete-orphan")
+
+
+class RewardContentFile(Base):
+    __tablename__ = "reward_content_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pack_id: Mapped[int] = mapped_column(ForeignKey("reward_content_packs.id"))
+
+    file_id: Mapped[str] = mapped_column(String(255))  # El ID para enviar el archivo
+    file_unique_id: Mapped[str] = mapped_column(String(255))  # Para evitar duplicados
+    media_type: Mapped[str] = mapped_column(String(20))  # 'photo', 'video', 'document'
+
+    # pack = relationship("RewardContentPack", back_populates="files")
 
 
 class GamificationProfile(Base):
