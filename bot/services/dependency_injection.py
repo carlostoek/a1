@@ -2,12 +2,14 @@ from aiogram import Bot
 from typing import Callable, Any, Annotated
 
 # Importar todos los servicios existentes:
+from bot.database.base import async_session_maker
 from bot.services.config_service import ConfigService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.stats_service import StatsService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.notification_service import NotificationService
 from bot.services.event_bus import EventBus
+from bot.services.gamification_service import GamificationService
 
 
 class ServiceContainer:
@@ -27,6 +29,15 @@ class ServiceContainer:
         self._stats_service = StatsService()
         self._channel_service = ChannelManagementService()
         self._event_bus = EventBus()
+
+        # Crear el servicio de gamificación con las dependencias requeridas
+        self._gamification_service = GamificationService(
+            session_maker=async_session_maker,
+            event_bus=self._event_bus,
+            notification_service=self._notification_service
+        )
+        # IMPORTANTE: Iniciar los listeners
+        self._gamification_service.setup_listeners()
         # Inicializar otros servicios aquí...
 
     # --- Propiedades de Acceso Rápido ---
@@ -60,6 +71,11 @@ class ServiceContainer:
     def bus(self) -> EventBus:
         """Acceso al servicio de Event Bus (Comunicación desacoplada)."""
         return self._event_bus
+
+    @property
+    def gamification(self) -> GamificationService:
+        """Acceso al servicio de Gamificación (Puntos y rangos)."""
+        return self._gamification_service
 
 
 # --- Definición del Resolver de Dependencias de Aiogram 3 ---
