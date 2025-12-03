@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from unittest.mock import AsyncMock
 from bot.config import Settings
 from bot.services.channel_service import ChannelManagementService
+from bot.services.config_service import ConfigService
 
 
 async def test_advanced_functionality():
@@ -33,7 +34,6 @@ async def test_advanced_functionality():
 
         # Test 2: Test content protection toggle
         try:
-            from bot.services.config_service import ConfigService
             result = await ConfigService.toggle_content_protection(session, 'vip', True)
             print(f"✓ Successfully tested content protection: {result}")
         except Exception as e:

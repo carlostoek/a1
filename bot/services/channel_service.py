@@ -446,24 +446,24 @@ class ChannelManagementService:
         Returns:
             Dictionary with success status and summary
         """
+        from sqlalchemy import delete
         try:
             # Calculate the date cutoff
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
 
-            # Find old requests that haven't been processed
-            result = await session.execute(
-                select(FreeChannelRequest).where(
-                    FreeChannelRequest.request_date < cutoff_date,
-                    FreeChannelRequest.processed.is_(False)
-                )
+            # Find old requests that haven't been processed and delete them in bulk
+            condition = (
+                FreeChannelRequest.request_date < cutoff_date,
+                FreeChannelRequest.processed.is_(False)
             )
-            old_requests = result.scalars().all()
 
-            count = len(old_requests)
+            count_result = await session.execute(
+                select(func.count(FreeChannelRequest.id)).where(*condition)
+            )
+            count = count_result.scalar_one()
 
-            # Delete old requests
-            for request in old_requests:
-                await session.delete(request)
+            if count > 0:
+                await session.execute(delete(FreeChannelRequest).where(*condition))
 
             await session.commit()
 

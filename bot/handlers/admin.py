@@ -739,8 +739,10 @@ async def vip_toggle_content_protection(callback_query: CallbackQuery, session: 
             await admin_vip(callback_query, session)
         else:
             await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
-    except Exception as e:
+    except (ServiceError, SQLAlchemyError) as e:
         await callback_query.answer(f"❌ Error al cambiar protección VIP: {str(e)}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error inesperado al cambiar protección VIP: {str(e)}", show_alert=True)
 
 
 @admin_router.callback_query(F.data == "free_toggle_protection")
@@ -762,8 +764,10 @@ async def free_toggle_content_protection(callback_query: CallbackQuery, session:
             await admin_free(callback_query)
         else:
             await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
-    except Exception as e:
+    except (ServiceError, SQLAlchemyError) as e:
         await callback_query.answer(f"❌ Error al cambiar protección Free: {str(e)}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error inesperado al cambiar protección Free: {str(e)}", show_alert=True)
 
 
 @admin_router.callback_query(F.data == "process_pending_now")
@@ -779,24 +783,26 @@ async def process_pending_requests_now(callback_query: CallbackQuery, session: A
         else:
             # Display error message if the operation failed
             await callback_query.answer(f"❌ Error al procesar solicitudes: {result['error']}", show_alert=True)
-    except Exception as e:
+    except (ServiceError, SQLAlchemyError) as e:
         await callback_query.answer(f"❌ Error al procesar solicitudes pendientes: {str(e)}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error inesperado al procesar solicitudes pendientes: {str(e)}", show_alert=True)
 
 
 @admin_router.callback_query(F.data == "cleanup_old_requests")
 async def cleanup_old_requests(callback_query: CallbackQuery, session: AsyncSession):
     """Manually clean up old free channel requests."""
     try:
-        # Need to implement cleanup logic in the service or here
-        # This is a placeholder for the cleanup functionality
         result = await ChannelManagementService.cleanup_old_requests(session)
 
         if result["success"]:
             await callback_query.answer(result["message"], show_alert=True)
         else:
             await callback_query.answer(f"❌ Error al limpiar solicitudes: {result['error']}", show_alert=True)
+    except (ServiceError, SQLAlchemyError) as e:
+        await callback_query.answer(f"❌ Error al limpiar solicitudes: {str(e)}", show_alert=True)
     except Exception as e:
-        await callback_query.answer(f"❌ Error al limpiar solicitudes antiguas: {str(e)}", show_alert=True)
+        await callback_query.answer(f"❌ Error inesperado al limpiar solicitudes: {str(e)}", show_alert=True)
 
 
 # Callback handlers for VIP subscriber management
