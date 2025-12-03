@@ -303,3 +303,106 @@ class GamificationService:
             self.logger.error(f"Unexpected error deleting content pack {pack_id}: {e}", exc_info=True)
             await session.rollback()
             return False
+
+    async def get_all_ranks(self, session) -> List[Rank]:
+        """
+        Retrieves all ranks from the database ordered by points.
+
+        Args:
+            session: Async database session
+
+        Returns:
+            List of Rank instances ordered by min_points
+        """
+        try:
+            result = await session.execute(
+                select(Rank).order_by(Rank.min_points)
+            )
+            ranks = result.scalars().all()
+
+            self.logger.info(f"Retrieved {len(ranks)} ranks")
+            return ranks
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error retrieving ranks: {e}", exc_info=True)
+            return []
+        except Exception as e:
+            self.logger.error(f"Unexpected error retrieving ranks: {e}", exc_info=True)
+            return []
+
+    async def update_rank_rewards(self, rank_id: int, session, vip_days: int = None, pack_id: int = None) -> Optional[Rank]:
+        """
+        Updates the reward configuration for a specific rank.
+
+        Args:
+            rank_id: ID of the rank to update
+            vip_days: New VIP days reward (if provided)
+            pack_id: New content pack ID (if provided, None to remove)
+            session: Async database session
+
+        Returns:
+            Updated Rank instance or None if rank not found
+        """
+        try:
+            # Get the rank
+            result = await session.execute(
+                select(Rank).where(Rank.id == rank_id)
+            )
+            rank = result.scalar_one_or_none()
+
+            if not rank:
+                self.logger.warning(f"Attempted to update non-existent rank: {rank_id}")
+                return None
+
+            # Update the fields if provided
+            if vip_days is not None:
+                rank.reward_vip_days = vip_days
+
+            if pack_id is not None:
+                rank.reward_content_pack_id = pack_id
+
+            await session.commit()
+            await session.refresh(rank)  # Refresh to get the updated values
+
+            self.logger.info(f"Updated rank {rank_id} rewards: VIP days={vip_days}, Pack ID={pack_id}")
+            return rank
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error updating rank {rank_id} rewards: {e}", exc_info=True)
+            await session.rollback()
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected error updating rank {rank_id} rewards: {e}", exc_info=True)
+            await session.rollback()
+            return None
+
+    async def get_rank_by_id(self, rank_id: int, session) -> Optional[Rank]:
+        """
+        Retrieves a specific rank by its ID.
+
+        Args:
+            rank_id: ID of the rank to retrieve
+            session: Async database session
+
+        Returns:
+            Rank instance or None if not found
+        """
+        try:
+            result = await session.execute(
+                select(Rank).where(Rank.id == rank_id)
+            )
+            rank = result.scalar_one_or_none()
+
+            if rank:
+                self.logger.info(f"Retrieved rank {rank_id}: {rank.name}")
+            else:
+                self.logger.warning(f"Attempted to retrieve non-existent rank: {rank_id}")
+
+            return rank
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error retrieving rank {rank_id}: {e}", exc_info=True)
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected error retrieving rank {rank_id}: {e}", exc_info=True)
+            return None
