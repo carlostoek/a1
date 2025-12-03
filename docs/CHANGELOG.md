@@ -34,6 +34,7 @@
 - Actualización de documentación para reflejar la estructura completa de menús
 - Patrón de Inyección de Dependencias con ServiceContainer para acceso centralizado a servicios
 - Servicio NotificationService para envío de mensajes basados en plantillas
+- Patrón Event Bus con implementación de EventBus y constantes Events para comunicación desacoplada
 - Funcionalidad de protección de contenido para canales VIP y Free
 - Columnas vip_content_protection y free_content_protection en la tabla bot_config
 - Métodos toggle_content_protection y get_content_protection_status en ConfigService
