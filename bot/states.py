@@ -32,3 +32,8 @@ class WaitTimeSetupStates(StatesGroup):
 
 class ReactionSetupStates(StatesGroup):
     waiting_reactions_input = State()  # Espera la cadena de emojis separados por coma.
+
+
+class ContentPackCreationStates(StatesGroup):
+    waiting_pack_name = State()
+    waiting_media_files = State()  # Loop para subir múltiples archivos

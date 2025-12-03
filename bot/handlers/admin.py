@@ -8,6 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command, CommandObject
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from aiogram.exceptions import TelegramBadRequest
 from bot.middlewares.auth import AdminAuthMiddleware
 from bot.middlewares.db import DBSessionMiddleware
@@ -18,7 +19,8 @@ from bot.services.stats_service import StatsService
 from bot.services.dependency_injection import Services
 from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.services.event_bus import Events
-from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates
+from bot.database.models import RewardContentFile
+from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates, ContentPackCreationStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 from bot.utils.ui import MenuFactory, ReactionCallback
@@ -216,6 +218,9 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         ("💋 Reacciones y Puntos", "vip_config_reactions"),
         ("🛡️ Protección de Contenido", "vip_toggle_protection"),  # New feature
         ("⚙️ Vincular ID Canal", "setup_vip_select"),
+
+        # -- RECOMPENSAS --
+        ("🎁 Packs de Recompensas", "admin_content_packs"),
     ]
 
     # Check if there are no tiers and add appropriate description
@@ -1375,3 +1380,188 @@ async def process_inline_reaction(callback_query: CallbackQuery, callback_data: 
 
     # Optional: Update reaction count in message if needed
     # For now, we just keep the original message
+
+
+# Handler for content packs menu
+@admin_router.callback_query(F.data == "admin_content_packs")
+async def admin_content_packs_menu(callback_query: CallbackQuery, session: AsyncSession, services: Services):
+    """
+    Show content pack management menu with list of existing packs.
+    """
+    # Get all content packs
+    packs = await services.gamification.get_all_content_packs(session)
+
+    # Create menu
+    keyboard = InlineKeyboardBuilder()
+
+    # Add existing packs if any
+    if packs:
+        for pack in packs:
+            keyboard.button(
+                text=f"📦 {pack.name}",
+                callback_data=f"pack_view_{pack.id}"
+            )
+    else:
+        keyboard.button(text="❌ No hay packs disponibles", callback_data="noop")
+
+    # Add "Create New Pack" button
+    keyboard.button(text="➕ Crear Nuevo Pack", callback_data="pack_create_new")
+
+    # Add "Volver" button
+    keyboard.button(text="Volver", callback_data="admin_vip")
+
+    keyboard.adjust(1)
+
+    # Create message text
+    if packs:
+        text = f"📦 **Packs de Contenido Multimedia**\n\nTotal: {len(packs)} packs\n\nSelecciona un pack para verlo o crea uno nuevo."
+    else:
+        text = "📦 **Packs de Contenido Multimedia**\n\nNo hay packs de contenido creados aún.\n\nCrea un pack nuevo para empezar."
+
+    await safe_edit_message(
+        callback_query,
+        text,
+        reply_markup=keyboard.as_markup()
+    )
+
+
+# Handler to start content pack creation
+@admin_router.callback_query(F.data == "pack_create_new")
+async def start_pack_creation(callback_query: CallbackQuery, state: FSMContext):
+    """
+    Start the content pack creation flow.
+    """
+    # Store return context for nested creation (if any)
+    # For now we just start the flow normally
+    await state.set_state(ContentPackCreationStates.waiting_pack_name)
+
+    # Ask for pack name
+    await callback_query.message.edit_text(
+        "📦 **Creación de Pack de Contenido**\n\nPonle un nombre único a este Pack de Contenido:"
+    )
+
+    # Answer the callback
+    await callback_query.answer()
+
+
+# Handler to process pack name
+@admin_router.message(ContentPackCreationStates.waiting_pack_name)
+async def process_pack_name(message: Message, state: FSMContext, session: AsyncSession, services: Services):
+    """
+    Process the pack name and move to media upload state.
+    """
+    # Get the pack name
+    pack_name = message.text.strip()
+
+    if not pack_name:
+        await message.reply("❌ El nombre del pack no puede estar vacío. Introduce un nombre válido:")
+        return
+
+    # Try to create the pack
+    pack = await services.gamification.create_content_pack(pack_name, session)
+
+    if pack is None:
+        await message.reply(f"❌ Ya existe un pack con el nombre '{pack_name}'. Elige otro nombre:")
+        return
+
+    # Store the pack ID in the state
+    await state.update_data(current_pack_id=pack.id)
+    await state.set_state(ContentPackCreationStates.waiting_media_files)
+
+    # Inform the user
+    await message.reply(
+        f"✅ Pack '{pack_name}' creado exitosamente.\n\n"
+        f"Ahora envía las fotos, videos o documentos una por una.\n"
+        f"Cuando termines, haz clic en el botón '🏁 Finalizar'."
+    )
+
+    # Add inline keyboard with finish button
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="🏁 Finalizar", callback_data="pack_finish_creation")
+    await message.answer("Selecciona cuando hayas terminado de subir archivos:", reply_markup=keyboard.as_markup())
+
+
+# Handler to finish pack creation
+@admin_router.callback_query(F.data == "pack_finish_creation")
+async def finish_pack_creation(callback_query: CallbackQuery, state: FSMContext, session: AsyncSession):
+    """
+    Finish the pack creation and redirect based on return context.
+    """
+    # Get state data
+    data = await state.get_data()
+
+    # Clear the state
+    await state.clear()
+
+    # Get return context if any
+    return_context = data.get("return_context")
+
+    # Inform the user
+    await callback_query.answer("✅ Pack creado y guardado exitosamente", show_alert=True)
+
+    # Check if we have a return context
+    if return_context:
+        # For now, just return to the content packs menu
+        await admin_content_packs_menu(callback_query, session)
+    else:
+        # Default: return to content packs menu
+        await admin_content_packs_menu(callback_query, session)
+
+
+# Handler to process media files
+@admin_router.message(ContentPackCreationStates.waiting_media_files)
+async def process_media_file(message: Message, state: FSMContext, session: AsyncSession, services: Services):
+    """
+    Process media files and add them to the current pack.
+    """
+    # Determine the media type and extract file info
+    file_id = None
+    file_unique_id = None
+    media_type = None
+
+    # Check for different types of media
+    if message.photo:
+        # Use the largest photo (last in the list)
+        photo = message.photo[-1]  # Get the highest resolution
+        file_id = photo.file_id
+        file_unique_id = photo.file_unique_id
+        media_type = 'photo'
+    elif message.video:
+        file_id = message.video.file_id
+        file_unique_id = message.video.file_unique_id
+        media_type = 'video'
+    elif message.document:
+        file_id = message.document.file_id
+        file_unique_id = message.document.file_unique_id
+        media_type = 'document'
+    else:
+        await message.reply("❌ Formato no soportado. Envía una foto, video o documento.")
+        return
+
+    # Get the current pack ID from state
+    data = await state.get_data()
+    pack_id = data.get("current_pack_id")
+
+    if not pack_id:
+        await message.reply("❌ Error: No hay un pack activo. Comienza la creación de pack primero.")
+        return
+
+    # Add the file to the pack
+    success = await services.gamification.add_file_to_pack(
+        pack_id=pack_id,
+        file_id=file_id,
+        unique_id=file_unique_id,
+        media_type=media_type,
+        session=session
+    )
+
+    if success:
+        # Count how many files are now in the pack
+        result = await session.execute(
+            select(RewardContentFile).where(RewardContentFile.pack_id == pack_id)
+        )
+        files = result.scalars().all()
+
+        await message.reply(f"➕ Archivo guardado ({len(files)} archivos en total). Continúa enviando archivos o finaliza.")
+    else:
+        await message.reply("❌ Error al guardar el archivo. Inténtalo de nuevo.")

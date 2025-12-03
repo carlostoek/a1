@@ -1,9 +1,9 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
-from bot.database.models import GamificationProfile, Rank
+from bot.database.models import GamificationProfile, Rank, RewardContentPack, RewardContentFile
 from bot.services.event_bus import Events
 
 
@@ -150,3 +150,156 @@ class GamificationService:
             self.logger.error(f"Database error notifying rank up for user {user_id}: {e}", exc_info=True)
         except Exception as e:
             self.logger.error(f"Unexpected error notifying rank up for user {user_id}: {e}", exc_info=True)
+
+    async def create_content_pack(self, name: str, session) -> Optional[RewardContentPack]:
+        """
+        Creates a new content pack with the given name.
+
+        Args:
+            name: Unique name for the content pack
+            session: Async database session
+
+        Returns:
+            The created RewardContentPack instance or None if name already exists
+        """
+        try:
+            # Check if a pack with this name already exists
+            result = await session.execute(
+                select(RewardContentPack).where(RewardContentPack.name == name)
+            )
+            existing_pack = result.scalar_one_or_none()
+
+            if existing_pack:
+                self.logger.warning(f"Content pack with name '{name}' already exists")
+                return None
+
+            # Create new content pack
+            pack = RewardContentPack(name=name)
+            session.add(pack)
+            await session.commit()
+
+            # Refresh the pack to get the generated ID
+            await session.refresh(pack)
+
+            self.logger.info(f"Created content pack: {name} (ID: {pack.id})")
+            return pack
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error creating content pack '{name}': {e}", exc_info=True)
+            await session.rollback()
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected error creating content pack '{name}': {e}", exc_info=True)
+            await session.rollback()
+            return None
+
+    async def add_file_to_pack(self, pack_id: int, file_id: str, unique_id: str, media_type: str, session):
+        """
+        Adds a media file to an existing content pack.
+
+        Args:
+            pack_id: ID of the content pack to add the file to
+            file_id: Telegram file_id
+            unique_id: Telegram unique identifier for the file
+            media_type: Type of media ('photo', 'video', 'document')
+            session: Async database session
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Create new content file
+            content_file = RewardContentFile(
+                pack_id=pack_id,
+                file_id=file_id,
+                file_unique_id=unique_id,
+                media_type=media_type
+            )
+            session.add(content_file)
+            await session.commit()
+
+            self.logger.info(f"Added file to pack {pack_id}: {media_type} (ID: {unique_id})")
+            return True
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error adding file to pack {pack_id}: {e}", exc_info=True)
+            await session.rollback()
+            return False
+        except Exception as e:
+            self.logger.error(f"Unexpected error adding file to pack {pack_id}: {e}", exc_info=True)
+            await session.rollback()
+            return False
+
+    async def get_all_content_packs(self, session) -> List[RewardContentPack]:
+        """
+        Retrieves all content packs from the database.
+
+        Args:
+            session: Async database session
+
+        Returns:
+            List of RewardContentPack instances
+        """
+        try:
+            result = await session.execute(
+                select(RewardContentPack).order_by(RewardContentPack.name)
+            )
+            packs = result.scalars().all()
+
+            self.logger.info(f"Retrieved {len(packs)} content packs")
+            return packs
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error retrieving content packs: {e}", exc_info=True)
+            return []
+        except Exception as e:
+            self.logger.error(f"Unexpected error retrieving content packs: {e}", exc_info=True)
+            return []
+
+    async def delete_content_pack(self, pack_id: int, session):
+        """
+        Deletes a content pack and all its associated files.
+
+        Args:
+            pack_id: ID of the content pack to delete
+            session: Async database session
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Delete all files associated with the pack first
+            await session.execute(
+                select(RewardContentFile).where(RewardContentFile.pack_id == pack_id)
+            )
+            # SQLAlchemy should handle the foreign key constraint with cascade delete if configured,
+            # but we handle it explicitly for safety
+            await session.execute(
+                "DELETE FROM reward_content_files WHERE pack_id = :pack_id",
+                {"pack_id": pack_id}
+            )
+
+            # Delete the pack itself
+            pack_result = await session.execute(
+                "DELETE FROM reward_content_packs WHERE id = :pack_id",
+                {"pack_id": pack_id}
+            )
+
+            await session.commit()
+
+            # Check if any pack was deleted
+            if pack_result.rowcount > 0:
+                self.logger.info(f"Deleted content pack: {pack_id}")
+                return True
+            else:
+                self.logger.warning(f"Attempted to delete non-existent content pack: {pack_id}")
+                return False
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error deleting content pack {pack_id}: {e}", exc_info=True)
+            await session.rollback()
+            return False
+        except Exception as e:
+            self.logger.error(f"Unexpected error deleting content pack {pack_id}: {e}", exc_info=True)
+            await session.rollback()
+            return False
