@@ -17,10 +17,11 @@ from bot.services.config_service import ConfigService
 from bot.services.stats_service import StatsService
 from bot.services.dependency_injection import Services
 from bot.services.exceptions import ServiceError, SubscriptionError
+from bot.services.event_bus import Events
 from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
-from bot.utils.ui import MenuFactory
+from bot.utils.ui import MenuFactory, ReactionCallback
 
 # Constants
 SUBSCRIBER_PAGE_SIZE = 5
@@ -1345,3 +1346,32 @@ async def vip_config_tiers(callback_query: CallbackQuery, session: AsyncSession)
     await callback_query.answer("Accediendo a la configuración de tarifas...", show_alert=False)
     # Call the existing handler
     await manage_tiers_menu(callback_query, session)
+
+
+# Handler for inline reaction buttons
+@admin_router.callback_query(ReactionCallback.filter())
+async def process_inline_reaction(callback_query: CallbackQuery, callback_data: ReactionCallback, services: Services):
+    """
+    Handler for reaction buttons.
+    Emits an event to the EventBus rather than processing the reaction directly.
+    """
+    # Respond immediately to remove the loading state in Telegram
+    await callback_query.answer()
+
+    # Extract reaction data from the callback_data
+    channel_type = callback_data.channel_type
+    emoji = callback_data.emoji
+
+    # Define the event data
+    event_data = {
+        "user_id": callback_query.from_user.id,
+        "channel_id": callback_query.message.chat.id,
+        "emoji": emoji,
+        "message_id": callback_query.message.message_id
+    }
+
+    # Emit the event to the EventBus (non-blocking)
+    await services.bus.emit(Events.REACTION_ADDED, event_data)
+
+    # Optional: Update reaction count in message if needed
+    # For now, we just keep the original message
