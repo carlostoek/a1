@@ -29,6 +29,15 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - Método compartido para obtener reacciones
   - Importaciones organizadas según PEP 8
   - Validación de tipo de canal para prevenir publicación incorrecta
+- **Mejoras de PR23**:
+  - **Nueva plantilla "rank_up"** en NotificationService para notificar subidas de rango
+  - **Mejoras a GamificationService** con type hints, constantes y mejor manejo de errores
+  - **Corrección de datetime.now** en GamificationProfile para usar timezone.utc
+  - **Uso de SQLAlchemy ORM** en la función seed_ranks para inicializar rangos
+  - **Eliminación de variables no utilizadas** en el código
+  - **Mejora de eficiencia** en la consulta `_check_rank_up` con uso de `limit(1)`
+  - **Implementación de constantes** como POINTS_PER_REACTION para valores fijos
+  - **Mejoras de manejo de errores** con SQLAlchemyError y manejo específico de errores de Telegram
 
 ## Instalación
 

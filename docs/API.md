@@ -18,6 +18,8 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `session_maker`: Generador de sesiones de base de datos asíncronas
     - `event_bus`: Instancia del bus de eventos para escuchar eventos
     - `notification_service`: Servicio de notificaciones para enviar mensajes a usuarios
+  - **Constants**:
+    - `POINTS_PER_REACTION`: Constante que define cuántos puntos se otorgan por reacción (10 puntos)
 
 #### Funciones Principales
 
@@ -33,6 +35,7 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `amount`: Cantidad de puntos a añadir
     - `session`: Sesión de base de datos activa
   - No retorna valor
+  - Implementa mejoras de manejo de errores con SQLAlchemyError y rollback en caso de error
 
 - **_on_reaction_added(event_name, data)**
   - Maneja el evento de reacción añadida, otorgando puntos al usuario
@@ -40,6 +43,7 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `event_name`: Nombre del evento (debería ser `Events.REACTION_ADDED`)
     - `data`: Diccionario con datos del evento, incluyendo 'user_id', 'channel_id', 'emoji'
   - No retorna valor
+  - Remueve variables no utilizadas (`channel_id`, `emoji`) para mejorar la limpieza del código
 
 - **_check_rank_up(profile, session)**
   - Verifica si el perfil de usuario subió de rango y actualiza si es necesario
@@ -47,6 +51,7 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `profile`: Instancia de GamificationProfile del usuario
     - `session`: Sesión de base de datos activa
   - No retorna valor
+  - **Mejora de eficiencia**: Utiliza `limit(1)` para mejorar la eficiencia de la consulta al buscar el nuevo rango
 
 - **_notify_rank_up(user_id, old_rank_id, new_rank, session)**
   - Envía notificación al usuario cuando sube de rango
@@ -56,6 +61,7 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `new_rank`: Instancia del nuevo rango alcanzado
     - `session`: Sesión de base de datos activa
   - No retorna valor
+  - Implementa mejoras de manejo de errores con SQLAlchemyError y manejo de casos donde no se encuentra el rango anterior
 
 ### NotificationService
 
@@ -88,12 +94,14 @@ El servicio de notificaciones gestiona el envío de mensajes a los usuarios basa
     - `template_name`: Nombre de la plantilla a usar
     - `context_data`: Datos de contexto para formatear la plantilla (opcional)
     - `reply_markup`: Teclado inline para adjuntar al mensaje (opcional)
+  - Implementa mejoras de manejo de errores con manejo específico de TelegramAPIError
 
 #### Plantillas Disponibles
 
 - **welcome_gamification**: Mensaje de bienvenida con puntos iniciales
 - **score_update**: Actualización de puntaje del usuario
 - **reward_unlocked**: Notificación de recompensa desbloqueada
+- **rank_up**: **NUEVO** - Notificación cuando un usuario sube de rango, mostrando el rango anterior y el nuevo rango
 - **vip_expiration_warning**: Aviso de expiración de suscripción VIP
 - **generic_alert**: Mensaje genérico de alerta
 
@@ -556,3 +564,4 @@ Modelo que representa el perfil de gamificación de un usuario.
 - **points**: Puntos acumulados por el usuario
 - **current_rank_id**: ID del rango actual del usuario (relación con Rank)
 - **last_interaction_at**: Fecha de la última interacción del usuario
+  - **Mejora**: Utiliza `datetime.now(timezone.utc)` para corregir problemas de zona horaria

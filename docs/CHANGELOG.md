@@ -68,6 +68,14 @@
 - **PR12**: Implementación de método compartido para obtener reacciones en ConfigService
 - **PR12**: Reorganización de importaciones para seguir estilo PEP 8
 - **PR12**: Mejora de la validación de tipo de canal para prevenir publicación en canal incorrecto
+- **PR23**: Añadida la plantilla "rank_up" al NotificationService para notificar subidas de rango
+- **PR23**: Mejoras a GamificationService con type hints, constantes y mejor manejo de errores
+- **PR23**: Corrección de datetime.now en GamificationProfile modelo para usar timezone.utc
+- **PR23**: Uso de SQLAlchemy ORM en la función seed_ranks para inicializar datos de manera más eficiente
+- **PR23**: Eliminación de variables no utilizadas en GamificationService
+- **PR23**: Mejora de eficiencia en la consulta _check_rank_up con uso de limit(1)
+- **PR23**: Implementación de constantes como POINTS_PER_REACTION para valores fijos en GamificationService
+- **PR23**: Mejoras de manejo de errores con SQLAlchemyError y manejo específico de errores de Telegram
 
 ### Fixed
 - Resolución de problemas de comparación de datetime y atributos de configuración
@@ -77,3 +85,4 @@
 - Solución de problemas de inicialización de base de datos
 - **PR12**: Corrección de problemas en el servicio de configuración con funciones sueltas
 - **PR12**: Mejora de la validación de tipos de canales en servicios
+- **PR23**: Corrección del problema de zona horaria en GamificationProfile modelo

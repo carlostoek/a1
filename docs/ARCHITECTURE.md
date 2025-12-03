@@ -34,6 +34,7 @@ El bot de administración de Telegram sigue una arquitectura modular basada en c
     │  - SubscriptionService (tokens, suscripciones)       │
     │  - ChannelService (canales, solicitudes)            │
     │  - ConfigService (configuración, tarifas)           │
+    │  - GamificationService (puntos, rangos)             │
     └─────────────┬─────────────────────────────────────────┘
                   │
     ┌─────────────▼─────────────────────────────────────────┐
@@ -61,6 +62,8 @@ Ubicados en `bot/services/`, estos módulos contienen la lógica de negocio:
 - **channel_service.py**: Gestión de solicitudes a canales, estadísticas y envío de publicaciones
 - **config_service.py**: Gestión de configuración global del bot
 - **stats_service.py**: Gestión de estadísticas generales, VIP y del canal gratuito
+- **gamification_service.py**: Gestión del sistema de puntos y rangos para aumentar la participación de usuarios
+- **notification_service.py**: Sistema de mensajería basado en plantillas para usuarios
 
 ### 3. Capa de Persistencia (Database)
 
@@ -125,6 +128,7 @@ Implementado para aumentar la participación y retención de usuarios:
 - **GamificationProfile**: Perfiles de usuarios que almacenan puntos acumulados, rango actual y fecha de última interacción
 - **Recompensas por Rango**: Cada rango tiene una recompensa descriptiva que se desbloquea al alcanzarlo
 - **Notificaciones de Gamificación**: Sistema de notificaciones específicas para eventos de gamificación como bienvenida a la gamificación, actualizaciones de puntaje y recompensas desbloqueadas
+- **Plantilla "rank_up"**: **NUEVO** - Notificación específica cuando un usuario sube de rango, mostrando el rango anterior y el nuevo rango
 - **Seed Data**: Inicialización automática de rangos predeterminados en la base de datos
 - **GamificationService**: Servicio central que gestiona la lógica de puntos, rangos y notificaciones de gamificación
 - **Integración con Event Bus**: El servicio se suscribe al evento `Events.REACTION_ADDED` para otorgar puntos automáticamente cuando los usuarios reaccionan a publicaciones
@@ -136,15 +140,26 @@ Implementado para aumentar la participación y retención de usuarios:
 - Anotaciones de tipo completas en todos los servicios y handlers
 - Uso de TypedDict para estructuras de retorno
 - Validación de tipos en tiempo de ejecución
+- **PR23**: Implementación de constantes para valores fijos en GamificationService (como POINTS_PER_REACTION)
 
 ### Manejo de Errores
 - Implementación de jerarquía de excepciones personalizadas
 - Manejo específico de errores de base de datos y API de Telegram
 - Mejora en la retroalimentación de errores al usuario
+- **PR23**: Mejoras en el manejo de errores con SQLAlchemyError y manejo de excepciones más robusto en GamificationService
+- **PR23**: Manejo específico de errores de TelegramAPIError en NotificationService
 
 ### Estructura de Importación
 - Organización de importaciones siguiendo estilo PEP 8
 - Agrupación lógica de dependencias estándar, terceros y locales
+
+### Optimización de Consultas
+- **PR23**: Mejora de la eficiencia de la consulta en `_check_rank_up` con `limit(1)` para evitar cargar más resultados de los necesarios
+- **PR23**: Uso de SQLAlchemy ORM en la función `seed_ranks` para inicializar datos de manera más eficiente
+
+### Limpieza de Código
+- **PR23**: Eliminación de variables no utilizadas en `_on_reaction_added` para mejorar la claridad del código
+- **PR23**: Corrección del problema de zona horaria en `GamificationProfile` usando `datetime.now(timezone.utc)`
 
 ## Base de Datos
 
@@ -186,6 +201,7 @@ Implementado para aumentar la participación y retención de usuarios:
    - Puntos acumulados
    - Rango actual del usuario
    - Fecha de última interacción
+   - **PR23**: Corrección de la zona horaria en `last_interaction_at` usando `datetime.now(timezone.utc)`
 
 ## Seguridad
 
