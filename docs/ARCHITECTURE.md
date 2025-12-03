@@ -67,7 +67,7 @@ Ubicados en `bot/services/`, estos módulos contienen la lógica de negocio:
 En `bot/database/` se encuentra la capa de persistencia:
 
 - **models.py**: Definición de modelos ORM
-- **base.py**: Configuración base de SQLAlchemy
+- **base.py**: Configuración base de SQLAlchemy, incluyendo el generador de sesiones asíncronas `async_session_maker` para inyección de dependencias en servicios
 
 ### 4. Capa de Configuración
 
@@ -124,6 +124,9 @@ Implementado para aumentar la participación y retención de usuarios:
 - **Recompensas por Rango**: Cada rango tiene una recompensa descriptiva que se desbloquea al alcanzarlo
 - **Notificaciones de Gamificación**: Sistema de notificaciones específicas para eventos de gamificación como bienvenida a la gamificación, actualizaciones de puntaje y recompensas desbloqueadas
 - **Seed Data**: Inicialización automática de rangos predeterminados en la base de datos
+- **GamificationService**: Servicio central que gestiona la lógica de puntos, rangos y notificaciones de gamificación
+- **Integración con Event Bus**: El servicio se suscribe al evento `Events.REACTION_ADDED` para otorgar puntos automáticamente cuando los usuarios reaccionan a publicaciones
+- **Sistema de Notificaciones Automáticas**: Cuando un usuario sube de rango, se envía automáticamente una notificación personalizada usando el servicio de notificaciones
 
 ## Mejoras de Código
 

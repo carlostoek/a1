@@ -44,6 +44,10 @@
 - Funcionalidad de seed data para inicializar rangos predeterminados en la base de datos
 - Plantillas de notificación para eventos de gamificación (welcome_gamification, score_update, reward_unlocked)
 - Rangos predeterminados: Bronce, Plata, Oro, Platino y Diamante con puntos y recompensas
+- GamificationService: Servicio completo de gamificación que otorga puntos automáticamente por reacciones y notifica subidas de rango
+- Integración del GamificationService con Event Bus para escuchar eventos de reacción
+- Sistema automatizado de notificaciones para subidas de rango
+- Método setup_listeners en GamificationService para suscribirse a eventos relevantes
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones
