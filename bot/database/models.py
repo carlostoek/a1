@@ -93,7 +93,7 @@ class GamificationProfile(Base):
     current_rank_id: Mapped[Optional[int]] = mapped_column(ForeignKey("gamification_ranks.id"), nullable=True)
 
     # Metadatos de actividad
-    last_interaction_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    last_interaction_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relación (Opcional, si usas ORM loading, sino solo el ID está bien)
     # rank = relationship("Rank")

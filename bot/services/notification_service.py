@@ -11,6 +11,7 @@ class NotificationService:
         "welcome_gamification": "🎉 **¡Bienvenido a la Gamificación!**\nHas ganado tus primeros {points} puntos. Completa misiones para subir de rango.",
         "score_update": "🏆 **Actualización de Puntaje:**\n¡Has ganado {points} puntos por tu actividad! Puntaje total: {total_points}.",
         "reward_unlocked": "🎁 **Recompensa Desbloqueada:**\n¡Felicitaciones! Has alcanzado el rango **{rank}** y desbloqueado {reward}.",
+        "rank_up": "🏆 **¡Felicidades!**\nHas subido de rango: **{old_rank}** → **{new_rank}**",
         "vip_expiration_warning": "🚨 **Aviso VIP:**\nTu suscripción VIP expira en {days} días. ¡No te quedes fuera!",
         "generic_alert": "📢 **Alerta:** {message}"
     }

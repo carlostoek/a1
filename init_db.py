@@ -1,5 +1,5 @@
 import asyncio
-from sqlalchemy import text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from bot.database.base import engine, Base, async_session
 from bot.database.models import Rank
@@ -20,13 +20,13 @@ async def init_db():
 async def seed_ranks():
     """Create default ranks if they don't exist."""
     async with async_session() as session:
-        # Check if ranks already exist
+        # Check if ranks already exist using SQLAlchemy ORM
         result = await session.execute(
-            text("SELECT COUNT(*) FROM gamification_ranks")
+            select(Rank).limit(1)  # Just check if any rank exists, limit 1 for efficiency
         )
-        count = result.scalar()
+        exists = result.first() is not None
 
-        if count == 0:  # Only add ranks if table is empty
+        if not exists:  # Only add ranks if table is empty
             ranks_data = [
                 {"name": "Bronce", "min_points": 0, "reward_description": "Nivel inicial de bienvenida"},
                 {"name": "Plata", "min_points": 100, "reward_description": "Reconocimiento de participación activa"},

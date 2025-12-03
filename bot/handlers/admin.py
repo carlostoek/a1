@@ -1359,7 +1359,7 @@ async def process_inline_reaction(callback_query: CallbackQuery, callback_data: 
     await callback_query.answer()
 
     # Extract reaction data from the callback_data
-    channel_type = callback_data.channel_type
+    # channel_type = callback_data.channel_type  # Unused variable
     emoji = callback_data.emoji
 
     # Define the event data

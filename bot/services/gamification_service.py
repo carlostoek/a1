@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Any
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
 from bot.database.models import GamificationProfile, Rank
 from bot.services.event_bus import Events
 
@@ -10,7 +11,10 @@ class GamificationService:
     """
     Servicio de gamificación para gestionar puntos y rangos de usuarios.
     """
-    def __init__(self, session_maker: async_sessionmaker, event_bus, notification_service):
+    # Constants
+    POINTS_PER_REACTION = 10
+
+    def __init__(self, session_maker: async_sessionmaker, event_bus: 'EventBus', notification_service: 'NotificationService'):
         self.session_maker = session_maker
         self.event_bus = event_bus
         self.notification_service = notification_service
@@ -28,15 +32,15 @@ class GamificationService:
         Input: data contiene {'user_id': int, 'channel_id': int, 'emoji': str}.
         """
         user_id = data.get('user_id')
-        channel_id = data.get('channel_id')
-        emoji = data.get('emoji')
+        # channel_id = data.get('channel_id')  # Unused variable
+        # emoji = data.get('emoji')  # Unused variable
 
         if not user_id:
             self.logger.error("No user_id provided in reaction event")
             return
 
-        # Otorgar puntos por reacción (10 puntos por defecto)
-        points = 10
+        # Otorgar puntos por reacción
+        points = self.POINTS_PER_REACTION
 
         # Abrir una nueva sesión para esta operación
         async with self.session_maker() as session:
@@ -81,8 +85,11 @@ class GamificationService:
             await session.commit()
             self.logger.info(f"Added {amount} points to user {user_id}. New total: {profile.points}")
 
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error adding points to user {user_id}: {e}", exc_info=True)
+            await session.rollback()
         except Exception as e:
-            self.logger.error(f"Error adding points to user {user_id}: {e}", exc_info=True)
+            self.logger.error(f"Unexpected error adding points to user {user_id}: {e}", exc_info=True)
             await session.rollback()
 
     async def _check_rank_up(self, profile: GamificationProfile, session):
@@ -96,12 +103,9 @@ class GamificationService:
                 select(Rank)
                 .where(Rank.min_points <= profile.points)
                 .order_by(Rank.min_points.desc())
+                .limit(1)  # Only get the first result
             )
-            possible_ranks = result.scalars().all()
-
-            new_rank = None
-            if possible_ranks:
-                new_rank = possible_ranks[0]  # El de mayor min_points que aún <= profile.points
+            new_rank = result.scalar_one_or_none()
 
             # Verificar si es un rango nuevo (mejor que el actual)
             if new_rank and (profile.current_rank_id != new_rank.id):
@@ -112,8 +116,10 @@ class GamificationService:
                 await self._notify_rank_up(profile.user_id, old_rank_id, new_rank, session)
 
                 self.logger.info(f"User {profile.user_id} leveled up from rank {old_rank_id} to {new_rank.id}")
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error checking rank up for user {profile.user_id}: {e}", exc_info=True)
         except Exception as e:
-            self.logger.error(f"Error checking rank up for user {profile.user_id}: {e}", exc_info=True)
+            self.logger.error(f"Unexpected error checking rank up for user {profile.user_id}: {e}", exc_info=True)
 
     async def _notify_rank_up(self, user_id: int, old_rank_id: int, new_rank: Rank, session):
         """
@@ -130,9 +136,17 @@ class GamificationService:
                 if old_rank:
                     old_rank_name = old_rank.name
 
-            message = f"¡Felicidades! Has subido de rango: {old_rank_name} → {new_rank.name}"
-            await self.notification_service.send_notification(user_id, message)
+            await self.notification_service.send_notification(
+                user_id,
+                "rank_up",
+                context_data={
+                    "old_rank": old_rank_name,
+                    "new_rank": new_rank.name
+                }
+            )
 
             self.logger.info(f"Rank up notification sent to user {user_id}")
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error notifying rank up for user {user_id}: {e}", exc_info=True)
         except Exception as e:
-            self.logger.error(f"Error notifying rank up for user {user_id}: {e}", exc_info=True)
+            self.logger.error(f"Unexpected error notifying rank up for user {user_id}: {e}", exc_info=True)
