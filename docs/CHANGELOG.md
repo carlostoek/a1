@@ -48,6 +48,10 @@
 - Integración del GamificationService con Event Bus para escuchar eventos de reacción
 - Sistema automatizado de notificaciones para subidas de rango
 - Método setup_listeners en GamificationService para suscribirse a eventos relevantes
+- Handler `process_inline_reaction` para procesar reacciones inline de usuarios
+- Implementación completa del flujo de gamificación: reacción → puntos → rank-ups
+- Desacoplamiento entre capa de UI y lógica de negocio a través del EventBus
+- Actualización de documentación para reflejar el nuevo patrón de desacoplamiento
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

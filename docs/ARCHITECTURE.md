@@ -101,6 +101,8 @@ Implementado para desacoplar módulos y permitir comunicación entre componentes
 - `Events`: Clase de constantes que define los tipos de eventos conocidos para evitar strings mágicos
 - Permite un patrón de comunicación fire-and-forget sin bloquear el flujo principal
 - Los listeners se ejecutan concurrentemente y errores en un listener no afectan a otros
+- El handler `process_inline_reaction` emite eventos `Events.REACTION_ADDED` al EventBus cuando los usuarios reaccionan a publicaciones
+- El servicio `GamificationService` escucha el evento `Events.REACTION_ADDED` y otorga puntos automáticamente a los usuarios
 
 ### Singleton con Caché
 El `ConfigService` implementa un patrón de caché en memoria para la configuración del bot.

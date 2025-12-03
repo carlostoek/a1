@@ -19,6 +19,8 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
 - **Perfiles de Gamificación**: Almacenamiento de puntos, rangos y actividad de usuarios
 - **GamificationService**: Servicio completo de gamificación que otorga puntos automáticamente por reacciones y notifica subidas de rango
 - **Integración con Event Bus**: Sistema automatizado que otorga puntos cuando los usuarios reaccionan a publicaciones
+- **Handler de Reacciones Inline**: Nuevo handler `process_inline_reaction` que procesa reacciones de usuarios y emite eventos al EventBus
+- **Desacoplamiento UI-Negocio**: Implementación del patrón de separación entre capa de presentación y lógica de negocio a través del EventBus
 - **Mejoras de PR12**:
   - Flujo de envío de posts con mejor manejo de errores
   - Consolidación de código duplicado

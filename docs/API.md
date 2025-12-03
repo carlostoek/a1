@@ -485,6 +485,27 @@ El bot utiliza [Aiogram 3](https://docs.aiogram.dev/) para interactuar con la AP
   - Obtiene información sobre el bot
   - Usado para obtener el nombre de usuario del bot para crear enlaces
 
+## Handlers
+
+### process_inline_reaction
+
+Handler que procesa reacciones inline de usuarios a publicaciones en canales.
+
+#### Función
+
+- **process_inline_reaction(callback_query: CallbackQuery, callback_data: ReactionCallback, services: Services)**
+  - Maneja las interacciones de reacción inline de los usuarios
+  - Emite un evento al EventBus en lugar de procesar la reacción directamente
+  - Parámetros:
+    - `callback_query`: Objeto de consulta de callback de Aiogram
+    - `callback_data`: Datos deserializados del callback que contienen tipo de canal y emoji
+    - `services`: Contenedor de servicios inyectado para acceso a EventBus y otros servicios
+  - No retorna valor
+  - Responde inmediatamente al callback para eliminar el estado de carga en Telegram
+  - Extrae datos de reacción (tipo de canal, emoji) de los datos del callback
+  - Emite evento `Events.REACTION_ADDED` al EventBus con datos del usuario, canal, emoji y mensaje
+  - Implementa el patrón de desacoplamiento entre capa de UI y lógica de negocio
+
 ## Manejo de Errores
 
 ### Excepciones Personalizadas
