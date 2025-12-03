@@ -1,5 +1,7 @@
+import logging
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
+from aiogram.exceptions import TelegramAPIError
 from typing import Dict, Any, Optional
 
 
@@ -29,7 +31,8 @@ class NotificationService:
         """
         if template_name not in self.NOTIFICATION_TEMPLATES:
             # Opción de fallback si la plantilla no existe
-            template = self.NOTIFICATION_TEMPLATES["generic_alert"].format(message=f"Error: Plantilla '{template_name}' no encontrada.")
+            template = self.NOTIFICATION_TEMPLATES.get("generic_alert", "Alerta: {message}")
+            context_data = {"message": f"Error: Plantilla '{template_name}' no encontrada."}
         else:
             template = self.NOTIFICATION_TEMPLATES[template_name]
 
@@ -52,7 +55,11 @@ class NotificationService:
                 reply_markup=reply_markup
             )
             return True
+        except TelegramAPIError as e:
+            # Manejo específico de errores de la API de Telegram
+            logging.error(f"Telegram API error al enviar notificación a {user_id}: {e}")
+            return False
         except Exception as e:
-            # Manejo de errores común (usuario bloqueó el bot, chat no encontrado)
-            print(f"ERROR enviando notificación a {user_id}: {e}")
+            # Manejo de otros errores
+            logging.error(f"Error desconocido al enviar notificación a {user_id}: {e}")
             return False

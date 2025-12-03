@@ -43,8 +43,9 @@ async def main():
     # Initialize background task manager
     background_manager = BackgroundTaskManager()
 
-    # Initialize dispatcher
+    # Initialize dispatcher with notification service
     dp = Dispatcher()
+    dp['notification_service'] = notification_service
 
     # Include routers
     dp.include_router(admin_router)
