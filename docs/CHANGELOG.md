@@ -39,6 +39,11 @@
 - Columnas vip_content_protection y free_content_protection en la tabla bot_config
 - Métodos toggle_content_protection y get_content_protection_status en ConfigService
 - Opciones de activación/desactivación de protección de contenido en menús VIP y Free
+- Sistema de gamificación con modelos Rank y GamificationProfile
+- Modelos Rank y GamificationProfile para sistema de puntos y rangos
+- Funcionalidad de seed data para inicializar rangos predeterminados en la base de datos
+- Plantillas de notificación para eventos de gamificación (welcome_gamification, score_update, reward_unlocked)
+- Rangos predeterminados: Bronce, Plata, Oro, Platino y Diamante con puntos y recompensas
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

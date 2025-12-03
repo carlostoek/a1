@@ -460,3 +460,24 @@ Definidas en `bot/services/exceptions.py`:
 ### Modelos de Base de Datos
 
 Ver [Modelos](MODELS.md) para detalles completos de los modelos de datos.
+
+### Modelos de Gamificación
+
+#### Rank
+
+Modelo que representa los rangos en el sistema de gamificación.
+
+- **id**: Identificador único del rango
+- **name**: Nombre del rango (ej: "Bronce", "Plata", "Oro", "Platino", "Diamante")
+- **min_points**: Puntos mínimos necesarios para alcanzar este rango
+- **reward_description**: Descripción de la recompensa asociada al rango
+- **Índices**: idx_rank_points para búsquedas rápidas por puntos mínimos
+
+#### GamificationProfile
+
+Modelo que representa el perfil de gamificación de un usuario.
+
+- **user_id**: ID de Telegram del usuario (clave primaria)
+- **points**: Puntos acumulados por el usuario
+- **current_rank_id**: ID del rango actual del usuario (relación con Rank)
+- **last_interaction_at**: Fecha de la última interacción del usuario

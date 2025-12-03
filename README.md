@@ -15,6 +15,8 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
 - **Servicio de Notificaciones**: Sistema de mensajería basado en plantillas para usuarios
 - **Patrón Event Bus**: Sistema de eventos asíncrono para desacoplar módulos y permitir comunicación entre componentes
 - **Estadísticas**: Seguimiento de usuarios activos y solicitudes pendientes
+- **Sistema de Gamificación**: Sistema de puntos y rangos con recompensas para aumentar la participación de usuarios
+- **Perfiles de Gamificación**: Almacenamiento de puntos, rangos y actividad de usuarios
 - **Mejoras de PR12**:
   - Flujo de envío de posts con mejor manejo de errores
   - Consolidación de código duplicado

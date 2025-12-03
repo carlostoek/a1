@@ -115,6 +115,16 @@ El `ConfigService` incluye un método `get_config_status` que proporciona una vi
 - Tiempo de espera configurado para el canal gratuito
 - Estado de las reacciones (VIP y Free): configuradas o pendientes
 
+## Patrones de Gamificación
+
+Implementado para aumentar la participación y retención de usuarios:
+
+- **Rank System**: Sistema de niveles basado en puntos que permite a los usuarios progresar a través de diferentes rangos (Bronce, Plata, Oro, Platino, Diamante)
+- **GamificationProfile**: Perfiles de usuarios que almacenan puntos acumulados, rango actual y fecha de última interacción
+- **Recompensas por Rango**: Cada rango tiene una recompensa descriptiva que se desbloquea al alcanzarlo
+- **Notificaciones de Gamificación**: Sistema de notificaciones específicas para eventos de gamificación como bienvenida a la gamificación, actualizaciones de puntaje y recompensas desbloqueadas
+- **Seed Data**: Inicialización automática de rangos predeterminados en la base de datos
+
 ## Mejoras de Código
 
 ### Seguridad de Tipos
@@ -159,6 +169,18 @@ El `ConfigService` incluye un método `get_config_status` que proporciona una vi
    - ID de usuario que solicitó
    - Fecha de solicitud
    - Estado de procesamiento
+
+6. **Rank**: Sistema de gamificación - Rangos
+   - Nombre del rango (ej: "Bronce", "Plata", "Oro")
+   - Puntos mínimos necesarios para alcanzarlo
+   - Descripción de la recompensa asociada
+   - Índice para búsquedas rápidas por puntos
+
+7. **GamificationProfile**: Perfil de gamificación de usuarios
+   - ID de usuario (Telegram ID)
+   - Puntos acumulados
+   - Rango actual del usuario
+   - Fecha de última interacción
 
 ## Seguridad
 
