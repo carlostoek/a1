@@ -89,6 +89,12 @@ Implementado para:
 - Autenticación de administradores
 - Inyección de sesiones de base de datos
 
+### Inyección de Dependencias
+Implementado usando el patrón Service Container para centralizar el acceso a los servicios del bot:
+- `ServiceContainer`: Contenedor central que instancia y gestiona todos los servicios como singletons
+- `Services`: Tipo anotado que permite inyectar el contenedor de servicios en los manejadores de Aiogram
+- `get_services_container`: Función resolvedora que extrae el ServiceContainer del contexto del manejador
+
 ### Singleton con Caché
 El `ConfigService` implementa un patrón de caché en memoria para la configuración del bot.
 

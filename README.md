@@ -10,6 +10,9 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
 - **Panel de Administración**: Interfaz completa para gestión de usuarios y canales
 - **Configuración Flexible**: Personalización de tiempos, reacciones y canales
 - **Publicación de Contenido**: Envío de posts con reacciones opcionales a canales VIP y Free
+- **Protección de Contenido**: Activación/desactivación de protección de contenido para canales VIP y Free
+- **Inyección de Dependencias**: Patrón ServiceContainer para acceso centralizado a servicios
+- **Servicio de Notificaciones**: Sistema de mensajería basado en plantillas para usuarios
 - **Estadísticas**: Seguimiento de usuarios activos y solicitudes pendientes
 - **Mejoras de PR12**:
   - Flujo de envío de posts con mejor manejo de errores
