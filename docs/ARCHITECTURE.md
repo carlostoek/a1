@@ -95,6 +95,13 @@ Implementado usando el patrón Service Container para centralizar el acceso a lo
 - `Services`: Tipo anotado que permite inyectar el contenedor de servicios en los manejadores de Aiogram
 - `get_services_container`: Función resolvedora que extrae el ServiceContainer del contexto del manejador
 
+### Patrón Event Bus
+Implementado para desacoplar módulos y permitir comunicación entre componentes sin acoplamiento directo:
+- `EventBus`: Bus de eventos asíncrono simple que permite a los componentes emitir y escuchar eventos
+- `Events`: Clase de constantes que define los tipos de eventos conocidos para evitar strings mágicos
+- Permite un patrón de comunicación fire-and-forget sin bloquear el flujo principal
+- Los listeners se ejecutan concurrentemente y errores en un listener no afectan a otros
+
 ### Singleton con Caché
 El `ConfigService` implementa un patrón de caché en memoria para la configuración del bot.
 

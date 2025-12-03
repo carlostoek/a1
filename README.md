@@ -13,6 +13,7 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
 - **Protección de Contenido**: Activación/desactivación de protección de contenido para canales VIP y Free
 - **Inyección de Dependencias**: Patrón ServiceContainer para acceso centralizado a servicios
 - **Servicio de Notificaciones**: Sistema de mensajería basado en plantillas para usuarios
+- **Patrón Event Bus**: Sistema de eventos asíncrono para desacoplar módulos y permitir comunicación entre componentes
 - **Estadísticas**: Seguimiento de usuarios activos y solicitudes pendientes
 - **Mejoras de PR12**:
   - Flujo de envío de posts con mejor manejo de errores

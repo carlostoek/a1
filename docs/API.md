@@ -13,6 +13,7 @@ Contenedor central de inyección de dependencias que gestiona todos los servicio
 - **subs**: Acceso al servicio de Suscripciones (`SubscriptionService`)
 - **stats**: Acceso al servicio de Estadísticas (`StatsService`)
 - **channel_manager**: Acceso al servicio de Gestión de Canales (`ChannelManagementService`)
+- **bus**: Acceso al servicio de Event Bus (`EventBus`)
 
 #### Inyección de Dependencias
 
@@ -334,7 +335,42 @@ Gestiona las estadísticas generales, VIP y del canal gratuito del bot.
     }
     ```
 
-## Utilidades de UI
+## Servicio de Eventos (Event Bus)
+
+### EventBus
+
+Bus de eventos asíncrono simple para desacoplar módulos y permitir comunicación entre componentes sin acoplamiento directo.
+
+#### Funciones Principales
+
+- **subscribe(event_name, handler)**
+  - Registra una función para escuchar un evento específico
+  - Parámetros:
+    - `event_name`: Nombre del evento como string
+    - `handler`: Función asincrónica que manejará el evento, con firma `Callable[[str, Dict[str, Any]], Awaitable[None]]`
+  - No retorna valor
+
+- **emit(event_name, data)**
+  - Publica un evento. Ejecuta todos los listeners suscritos de forma concurrente sin bloquear el flujo principal (fire-and-forget)
+  - Parámetros:
+    - `event_name`: Nombre del evento como string
+    - `data`: Diccionario con datos a pasar al manejador
+  - No retorna valor
+
+- **_run_handler(handler, event_name, data)**
+  - Wrapper seguro para ejecutar handlers y capturar errores
+  - Parámetros:
+    - `handler`: Función manejadora del evento
+    - `event_name`: Nombre del evento
+    - `data`: Diccionario con datos del evento
+  - No retorna valor
+
+#### Tipos de Eventos Disponibles (Events)
+
+- **Events.REACTION_ADDED**: Emitido cuando alguien reacciona a una publicación
+- **Events.SUBSCRIPTION_NEW**: Emitido cuando alguien compra una suscripción VIP
+- **Events.VIP_EXPIRED**: Emitido cuando a alguien expira su suscripción VIP
+- **Events.LEVEL_UP**: (Futuro) Emitido cuando un usuario sube de nivel
 
 ### MenuFactory
 
