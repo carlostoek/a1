@@ -42,6 +42,13 @@ This document describes the integration of System A's advanced channel managemen
 - Offers reaction analytics
 - Generates performance reports
 
+### NotificationService
+- Centralized system for all user notifications
+- Template-based message system with consistent formatting
+- Support for dynamic content insertion via context data
+- Comprehensive error handling for delivery failures
+- Includes predefined templates for common notifications like gamification updates, alerts, and warnings
+
 ## Enhanced Services
 
 ### ChannelManagementService
@@ -153,6 +160,13 @@ This document describes the integration of System A's advanced channel managemen
 - Added feature_coming_soon callback as placeholder for future functionality
 - Added vip_generate_token and vip_config_tiers for better navigation
 - All new features accessible through restructured menu system
+
+## Notification System Integration
+- Centralized notification service for all user communications
+- Template-based system for consistent messaging
+- Integration with gamification features (score updates, rewards)
+- Integration with subscription management (expiration warnings)
+- Proper error handling when users block the bot or chats are unavailable
 
 ## Testing Recommendations
 
