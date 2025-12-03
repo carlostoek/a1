@@ -14,6 +14,7 @@ from bot.database.base import engine
 from bot.handlers.admin import admin_router
 from bot.handlers.user import user_router
 from bot.tasks import BackgroundTaskManager
+from bot.services.notification_service import NotificationService
 from init_db import init_db
 
 
@@ -36,11 +37,15 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
 
+    # Initialize notification service
+    notification_service = NotificationService(bot)
+
     # Initialize background task manager
     background_manager = BackgroundTaskManager()
 
-    # Initialize dispatcher
+    # Initialize dispatcher with notification service
     dp = Dispatcher()
+    dp['notification_service'] = notification_service
 
     # Include routers
     dp.include_router(admin_router)

@@ -93,6 +93,7 @@
 - Advanced analytics capabilities
 - Automatic processing features
 - Content protection options
+- Centralized notification system
 
 ### For System A (bolt_ok/mybot) Functionality
 - Improved architecture and maintainability
@@ -135,7 +136,9 @@
 - `bot/services/extended_channel_service.py` - Extended compatibility layer
 - `bot/services/content_service.py` - Content management
 - `bot/services/advanced_analytics_service.py` - Analytics and reporting
+- `bot/services/notification_service.py` - Centralized notification system
 - `test_advanced_functionality.py` - Testing script
+- `test_notification_service.py` - Notification service testing
 - `INTEGRATION_GUIDE.md` - Documentation
 
 ### Modified Files
