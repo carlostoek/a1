@@ -32,6 +32,12 @@
 - Opción "Configurar Tiempo de Espera" directamente en menú Free
 - Funcionalidad de "Configurar" como submenú en menús VIP y Free
 - Actualización de documentación para reflejar la estructura completa de menús
+- Patrón de Inyección de Dependencias con ServiceContainer para acceso centralizado a servicios
+- Servicio NotificationService para envío de mensajes basados en plantillas
+- Funcionalidad de protección de contenido para canales VIP y Free
+- Columnas vip_content_protection y free_content_protection en la tabla bot_config
+- Métodos toggle_content_protection y get_content_protection_status en ConfigService
+- Opciones de activación/desactivación de protección de contenido en menús VIP y Free
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

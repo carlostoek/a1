@@ -36,6 +36,8 @@ Configuración global del bot.
 | vip_reactions | JSON | Lista de reacciones para el canal VIP | {} |
 | free_reactions | JSON | Lista de reacciones para el canal gratuito | {} |
 | subscription_fees | JSON | Tarifas de suscripción | {} |
+| vip_content_protection | Boolean | Indica si la protección de contenido está activada para el canal VIP | False |
+| free_content_protection | Boolean | Indica si la protección de contenido está activada para el canal gratuito | False |
 
 ### UserSubscription
 

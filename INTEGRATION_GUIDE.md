@@ -127,6 +127,7 @@ This document describes the integration of System A's advanced channel managemen
 - More maintainable code structure
 - Improved error handling
 - Better documentation
+- Implemented ServiceContainer for centralized dependency injection
 
 ### Performance
 - Optimized database queries
@@ -160,6 +161,29 @@ This document describes the integration of System A's advanced channel managemen
 - Added feature_coming_soon callback as placeholder for future functionality
 - Added vip_generate_token and vip_config_tiers for better navigation
 - All new features accessible through restructured menu system
+
+## Service Container Implementation
+
+### Dependency Injection Architecture
+- ServiceContainer class manages instantiation and access to all services as singletons
+- Provides convenient property accessors for core services:
+  - config: ConfigService for configuration management
+  - notify: NotificationService for user messaging
+  - subs: SubscriptionService for VIP user management
+  - stats: StatsService for analytics and reporting
+  - channel_manager: ChannelManagementService for channel operations
+
+### Integration with Aiogram 3
+- ServiceContainer is instantiated and registered in the Dispatcher
+- Dependency resolver function extracts the ServiceContainer from handler context
+- Services type annotation provides convenient access in handler signatures
+- All services are now accessed through the container instead of direct imports
+
+### Handler Refactoring
+- Admin handlers refactored to use Services annotation instead of individual service injection
+- Services parameter provides access to all core services via property accessors
+- Improved code organization and reduced import complexity
+- Better testability and service management
 
 ## Notification System Integration
 - Centralized notification service for all user communications

@@ -15,6 +15,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.services.stats_service import StatsService
+from bot.services.dependency_injection import Services
 from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates
 from bot.config import Settings
@@ -721,15 +722,15 @@ async def cancel_post_send(callback_query: CallbackQuery, state: FSMContext):
 
 
 @admin_router.callback_query(F.data == "vip_toggle_protection")
-async def vip_toggle_content_protection(callback_query: CallbackQuery, session: AsyncSession):
+async def vip_toggle_content_protection(callback_query: CallbackQuery, session: AsyncSession, services: Services):
     """Toggle content protection for VIP channel."""
     try:
-        # Get current protection status
-        current_status = await ConfigService.get_content_protection_status(session, "vip")
+        # Get current protection status using service container
+        current_status = await services.config.get_content_protection_status(session, "vip")
 
         # Toggle protection status
         new_status = not current_status
-        result = await ConfigService.toggle_content_protection(session, "vip", new_status)
+        result = await services.config.toggle_content_protection(session, "vip", new_status)
 
         if result["success"]:
             status_text = "activada" if new_status else "desactivada"
@@ -746,15 +747,15 @@ async def vip_toggle_content_protection(callback_query: CallbackQuery, session: 
 
 
 @admin_router.callback_query(F.data == "free_toggle_protection")
-async def free_toggle_content_protection(callback_query: CallbackQuery, session: AsyncSession):
+async def free_toggle_content_protection(callback_query: CallbackQuery, session: AsyncSession, services: Services):
     """Toggle content protection for Free channel."""
     try:
-        # Get current protection status
-        current_status = await ConfigService.get_content_protection_status(session, "free")
+        # Get current protection status using service container
+        current_status = await services.config.get_content_protection_status(session, "free")
 
         # Toggle protection status
         new_status = not current_status
-        result = await ConfigService.toggle_content_protection(session, "free", new_status)
+        result = await services.config.toggle_content_protection(session, "free", new_status)
 
         if result["success"]:
             status_text = "activada" if new_status else "desactivada"
@@ -790,10 +791,10 @@ async def process_pending_requests_now(callback_query: CallbackQuery, session: A
 
 
 @admin_router.callback_query(F.data == "cleanup_old_requests")
-async def cleanup_old_requests(callback_query: CallbackQuery, session: AsyncSession):
+async def cleanup_old_requests(callback_query: CallbackQuery, session: AsyncSession, services: Services):
     """Manually clean up old free channel requests."""
     try:
-        result = await ChannelManagementService.cleanup_old_requests(session)
+        result = await services.channel_manager.cleanup_old_requests(session)
 
         if result["success"]:
             await callback_query.answer(result["message"], show_alert=True)

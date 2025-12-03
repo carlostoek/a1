@@ -2,6 +2,46 @@
 
 ## Servicios del Bot
 
+### ServiceContainer
+
+Contenedor central de inyección de dependencias que gestiona todos los servicios del bot como singletons.
+
+#### Propiedades de Acceso Rápido
+
+- **config**: Acceso al servicio de Configuración (`ConfigService`)
+- **notify**: Acceso al servicio de Notificaciones (`NotificationService`)
+- **subs**: Acceso al servicio de Suscripciones (`SubscriptionService`)
+- **stats**: Acceso al servicio de Estadísticas (`StatsService`)
+- **channel_manager**: Acceso al servicio de Gestión de Canales (`ChannelManagementService`)
+
+#### Inyección de Dependencias
+
+- **Services**: Tipo anotado (`Annotated[ServiceContainer, get_services_container]`) para inyectar el contenedor de servicios en manejadores de Aiogram
+- **get_services_container**: Función resolvedora que extrae el ServiceContainer del contexto del manejador
+
+### NotificationService
+
+El servicio de notificaciones gestiona el envío de mensajes a los usuarios basados en plantillas.
+
+#### Funciones Principales
+
+- **send_notification(user_id, template_name, context_data=None, reply_markup=None)**
+  - Envía una notificación al usuario basándose en una plantilla predefinida
+  - Retorna `True` si el envío fue exitoso, `False` en caso de error
+  - Parámetros:
+    - `user_id`: ID del usuario destinatario
+    - `template_name`: Nombre de la plantilla a usar
+    - `context_data`: Datos de contexto para formatear la plantilla (opcional)
+    - `reply_markup`: Teclado inline para adjuntar al mensaje (opcional)
+
+#### Plantillas Disponibles
+
+- **welcome_gamification**: Mensaje de bienvenida con puntos iniciales
+- **score_update**: Actualización de puntaje del usuario
+- **reward_unlocked**: Notificación de recompensa desbloqueada
+- **vip_expiration_warning**: Aviso de expiración de suscripción VIP
+- **generic_alert**: Mensaje genérico de alerta
+
 ### SubscriptionService
 
 El servicio de suscripciones gestiona todo lo relacionado con tokens VIP y suscripciones de usuarios.
@@ -226,6 +266,29 @@ Gestiona la configuración global del bot con caché en memoria.
       "free_reactions": list (lista de reacciones para canal Free) / []
     }
     ```
+
+- **toggle_content_protection(session, channel_type, enable)**
+  - Activa o desactiva la protección de contenido para un tipo de canal específico
+  - **Parámetros**:
+    - `session` (sesión de base de datos)
+    - `channel_type` ("vip" o "free")
+    - `enable` (booleano para activar o desactivar la protección)
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,
+      "channel_type": string ("vip" o "free"),
+      "enabled": boolean,
+      "error": string (opcional, si success es False)
+    }
+    ```
+
+- **get_content_protection_status(session, channel_type)**
+  - Obtiene el estado actual de la protección de contenido para un tipo de canal específico
+  - **Parámetros**:
+    - `session` (sesión de base de datos)
+    - `channel_type` ("vip" o "free")
+  - **Retorna**: booleano indicando si la protección está activada
 
 ### StatsService
 
