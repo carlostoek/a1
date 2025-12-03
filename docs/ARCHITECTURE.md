@@ -86,6 +86,7 @@ Implementado usando Aiogram para manejar flujos de configuración como:
 - Registro de canales
 - Creación de tarifas de suscripción
 - Envío de publicaciones con reacciones opcionales
+- Creación de packs de contenido multimedia
 
 ### Middleware
 Implementado para:
@@ -137,6 +138,30 @@ Implementado para aumentar la participación y retención de usuarios:
 - **GamificationService**: Servicio central que gestiona la lógica de puntos, rangos y notificaciones de gamificación
 - **Integración con Event Bus**: El servicio se suscribe al evento `Events.REACTION_ADDED` para otorgar puntos automáticamente cuando los usuarios reaccionan a publicaciones
 - **Sistema de Notificaciones Automáticas**: Cuando un usuario sube de rango, se envía automáticamente una notificación personalizada usando el servicio de notificaciones
+
+## Sistema de Gestión de Packs de Contenido
+
+Implementado para administrar contenido multimedia como recompensas en el sistema de gamificación:
+
+- **ContentPackCreationStates**: Estados FSM para el flujo de creación de packs de contenido multimedia
+  - `waiting_pack_name`: Espera el nombre único del pack de contenido
+  - `waiting_media_files`: Bucle para subir múltiples archivos multimedia (fotos, videos, documentos)
+- **GamificationService Methods**: Funciones específicas para la gestión de packs de contenido
+  - `create_content_pack`: Crea un nuevo pack de contenido con un nombre único
+  - `add_file_to_pack`: Añade archivos multimedia a un pack existente
+  - `get_all_content_packs`: Recupera todos los packs de contenido disponibles
+  - `delete_content_pack`: Elimina un pack y todos sus archivos asociados
+- **Media Upload Support**: Soporte para múltiples tipos de medios
+  - Fotos: Formato JPG, PNG u otros formatos compatibles
+  - Videos: Formato MP4 u otros formatos compatibles
+  - Documentos: Cualquier tipo de archivo compatible con Telegram
+- **Return Context Infrastructure**: Sistema para mantener el contexto de navegación en flujos anidados
+  - Almacenamiento de contexto de retorno en el estado FSM
+  - Posibilidad de regresar al punto de origen después de la creación
+- **Integración con Menú VIP**: Opción "Packs de Recompensas" en el menú de administración VIP
+  - Acceso directo a la gestión de packs de contenido
+  - Visualización de packs existentes
+  - Creación de nuevos packs
 
 ## Mejoras de Código
 

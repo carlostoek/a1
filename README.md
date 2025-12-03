@@ -40,6 +40,12 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - **Mejora de eficiencia** en la consulta `_check_rank_up` con uso de `limit(1)`
   - **Implementación de constantes** como POINTS_PER_REACTION para valores fijos
   - **Mejoras de manejo de errores** con SQLAlchemyError y manejo específico de errores de Telegram
+- **Sistema de Gestión de Packs de Contenido**: Nuevo sistema para crear y administrar packs de contenido multimedia como recompensas
+  - **ContentPackCreationStates**: Estados FSM para el flujo de creación de packs de contenido
+  - **Métodos GamificationService**: Funciones `create_content_pack`, `add_file_to_pack`, `get_all_content_packs`, `delete_content_pack`
+  - **Soporte para múltiples tipos de medios**: Fotos, videos y documentos
+  - **Integración con menú VIP**: Nueva opción "Packs de Recompensas" en el menú de administración VIP
+  - **Infraestructura de contexto de retorno**: Sistema para mantener el contexto en flujos de creación anidados
 
 ## Instalación
 

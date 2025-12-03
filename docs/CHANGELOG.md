@@ -56,6 +56,16 @@
 - Nuevo modelo RewardContentFile para archivos individuales dentro de packs de contenido
 - Actualización del modelo Rank con campos reward_vip_days y reward_content_pack_id para recompensas avanzadas
 - Implementación de relaciones entre rangos y packs de contenido para recompensas personalizadas
+- Nuevo FSM ContentPackCreationStates para el flujo de creación de packs de contenido
+- Métodos GamificationService: create_content_pack, add_file_to_pack, get_all_content_packs, delete_content_pack
+- Nuevo handler admin_content_packs_menu para gestión de packs de contenido
+- Nuevo handler start_pack_creation para iniciar el flujo de creación de packs
+- Nuevo handler process_pack_name para procesar el nombre del pack
+- Nuevo handler process_media_file para procesar archivos multimedia
+- Nuevo handler finish_pack_creation para finalizar la creación de packs
+- Integración con menú VIP añadiendo opción "Packs de Recompensas"
+- Soporte para subida de fotos, videos y documentos como contenido multimedia
+- Infraestructura de contexto de retorno para flujos de creación anidados
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

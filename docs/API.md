@@ -63,6 +63,40 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
   - No retorna valor
   - Implementa mejoras de manejo de errores con SQLAlchemyError y manejo de casos donde no se encuentra el rango anterior
 
+- **create_content_pack(name, session)**
+  - Crea un nuevo pack de contenido con el nombre especificado
+  - Parámetros:
+    - `name`: Nombre único para el pack de contenido
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: La instancia RewardContentPack creada o None si el nombre ya existe
+  - Verifica que no exista un pack con el mismo nombre antes de crearlo
+
+- **add_file_to_pack(pack_id, file_id, unique_id, media_type, session)**
+  - Añade un archivo multimedia a un pack de contenido existente
+  - Parámetros:
+    - `pack_id`: ID del pack de contenido al que se agregará el archivo
+    - `file_id`: ID de archivo de Telegram
+    - `unique_id`: Identificador único de Telegram para el archivo
+    - `media_type`: Tipo de medio ('photo', 'video', 'document')
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: True si la operación fue exitosa, False en caso contrario
+  - Soporta fotos, videos y documentos como tipos de medios
+
+- **get_all_content_packs(session)**
+  - Recupera todos los packs de contenido de la base de datos
+  - Parámetros:
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: Lista de instancias RewardContentPack ordenadas por nombre
+  - Utilizado para mostrar la lista de packs disponibles en el menú de administración
+
+- **delete_content_pack(pack_id, session)**
+  - Elimina un pack de contenido y todos sus archivos asociados
+  - Parámetros:
+    - `pack_id`: ID del pack de contenido a eliminar
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: True si la operación fue exitosa, False en caso contrario
+  - Elimina primero todos los archivos asociados al pack antes de eliminar el pack
+
 ### NotificationService
 
 #### Propiedades de Acceso Rápido
