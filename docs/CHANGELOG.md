@@ -39,6 +39,19 @@
 - Columnas vip_content_protection y free_content_protection en la tabla bot_config
 - Métodos toggle_content_protection y get_content_protection_status en ConfigService
 - Opciones de activación/desactivación de protección de contenido en menús VIP y Free
+- Sistema de gamificación con modelos Rank y GamificationProfile
+- Modelos Rank y GamificationProfile para sistema de puntos y rangos
+- Funcionalidad de seed data para inicializar rangos predeterminados en la base de datos
+- Plantillas de notificación para eventos de gamificación (welcome_gamification, score_update, reward_unlocked)
+- Rangos predeterminados: Bronce, Plata, Oro, Platino y Diamante con puntos y recompensas
+- GamificationService: Servicio completo de gamificación que otorga puntos automáticamente por reacciones y notifica subidas de rango
+- Integración del GamificationService con Event Bus para escuchar eventos de reacción
+- Sistema automatizado de notificaciones para subidas de rango
+- Método setup_listeners en GamificationService para suscribirse a eventos relevantes
+- Handler `process_inline_reaction` para procesar reacciones inline de usuarios
+- Implementación completa del flujo de gamificación: reacción → puntos → rank-ups
+- Desacoplamiento entre capa de UI y lógica de negocio a través del EventBus
+- Actualización de documentación para reflejar el nuevo patrón de desacoplamiento
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones
@@ -55,6 +68,14 @@
 - **PR12**: Implementación de método compartido para obtener reacciones en ConfigService
 - **PR12**: Reorganización de importaciones para seguir estilo PEP 8
 - **PR12**: Mejora de la validación de tipo de canal para prevenir publicación en canal incorrecto
+- **PR23**: Añadida la plantilla "rank_up" al NotificationService para notificar subidas de rango
+- **PR23**: Mejoras a GamificationService con type hints, constantes y mejor manejo de errores
+- **PR23**: Corrección de datetime.now en GamificationProfile modelo para usar timezone.utc
+- **PR23**: Uso de SQLAlchemy ORM en la función seed_ranks para inicializar datos de manera más eficiente
+- **PR23**: Eliminación de variables no utilizadas en GamificationService
+- **PR23**: Mejora de eficiencia en la consulta _check_rank_up con uso de limit(1)
+- **PR23**: Implementación de constantes como POINTS_PER_REACTION para valores fijos en GamificationService
+- **PR23**: Mejoras de manejo de errores con SQLAlchemyError y manejo específico de errores de Telegram
 
 ### Fixed
 - Resolución de problemas de comparación de datetime y atributos de configuración
@@ -64,3 +85,4 @@
 - Solución de problemas de inicialización de base de datos
 - **PR12**: Corrección de problemas en el servicio de configuración con funciones sueltas
 - **PR12**: Mejora de la validación de tipos de canales en servicios
+- **PR23**: Corrección del problema de zona horaria en GamificationProfile modelo

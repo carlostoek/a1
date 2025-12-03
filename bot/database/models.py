@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy import Integer, BigInteger, String, DateTime, Boolean, JSON, ForeignKey, Index, Float
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, timezone
 from .base import Base
 
@@ -69,3 +69,31 @@ class FreeChannelRequest(Base):
 
     # Composite index on [user_id, request_date]
     __table_args__ = (Index("idx_user_request_date", "user_id", "request_date"),)
+
+
+class Rank(Base):
+    __tablename__ = "gamification_ranks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True)  # Ej: "Novato", "Veterano"
+    min_points: Mapped[int] = mapped_column(Integer, unique=True)  # Puntos para alcanzarlo
+    reward_description: Mapped[str] = mapped_column(String(200), nullable=True)  # Texto descriptivo de recompensa
+
+    # Índices para búsquedas rápidas al calcular nivel
+    __table_args__ = (
+        Index('idx_rank_points', 'min_points'),
+    )
+
+
+class GamificationProfile(Base):
+    __tablename__ = "gamification_profiles"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)  # FK lógica a Telegram ID
+    points: Mapped[int] = mapped_column(Integer, default=0)
+    current_rank_id: Mapped[Optional[int]] = mapped_column(ForeignKey("gamification_ranks.id"), nullable=True)
+
+    # Metadatos de actividad
+    last_interaction_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relación (Opcional, si usas ORM loading, sino solo el ID está bien)
+    # rank = relationship("Rank")

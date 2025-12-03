@@ -15,6 +15,12 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
 - **Servicio de Notificaciones**: Sistema de mensajería basado en plantillas para usuarios
 - **Patrón Event Bus**: Sistema de eventos asíncrono para desacoplar módulos y permitir comunicación entre componentes
 - **Estadísticas**: Seguimiento de usuarios activos y solicitudes pendientes
+- **Sistema de Gamificación**: Sistema de puntos y rangos con recompensas para aumentar la participación de usuarios
+- **Perfiles de Gamificación**: Almacenamiento de puntos, rangos y actividad de usuarios
+- **GamificationService**: Servicio completo de gamificación que otorga puntos automáticamente por reacciones y notifica subidas de rango
+- **Integración con Event Bus**: Sistema automatizado que otorga puntos cuando los usuarios reaccionan a publicaciones
+- **Handler de Reacciones Inline**: Nuevo handler `process_inline_reaction` que procesa reacciones de usuarios y emite eventos al EventBus
+- **Desacoplamiento UI-Negocio**: Implementación del patrón de separación entre capa de presentación y lógica de negocio a través del EventBus
 - **Mejoras de PR12**:
   - Flujo de envío de posts con mejor manejo de errores
   - Consolidación de código duplicado
@@ -23,6 +29,15 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - Método compartido para obtener reacciones
   - Importaciones organizadas según PEP 8
   - Validación de tipo de canal para prevenir publicación incorrecta
+- **Mejoras de PR23**:
+  - **Nueva plantilla "rank_up"** en NotificationService para notificar subidas de rango
+  - **Mejoras a GamificationService** con type hints, constantes y mejor manejo de errores
+  - **Corrección de datetime.now** en GamificationProfile para usar timezone.utc
+  - **Uso de SQLAlchemy ORM** en la función seed_ranks para inicializar rangos
+  - **Eliminación de variables no utilizadas** en el código
+  - **Mejora de eficiencia** en la consulta `_check_rank_up` con uso de `limit(1)`
+  - **Implementación de constantes** como POINTS_PER_REACTION para valores fijos
+  - **Mejoras de manejo de errores** con SQLAlchemyError y manejo específico de errores de Telegram
 
 ## Instalación
 

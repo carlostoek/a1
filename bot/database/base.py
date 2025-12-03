@@ -24,8 +24,21 @@ async_session = sessionmaker(
     expire_on_commit=False
 )
 
+# Create async session maker for direct use
+async_session_maker = sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
 
 async def get_session():
     """Async generator to yield database sessions."""
     async with async_session() as session:
         yield session
+
+
+# For direct import access
+def async_sessionmaker():
+    """Return the async session maker for dependency injection."""
+    return async_session_maker
