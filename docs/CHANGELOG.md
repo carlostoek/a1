@@ -52,6 +52,10 @@
 - Implementación completa del flujo de gamificación: reacción → puntos → rank-ups
 - Desacoplamiento entre capa de UI y lógica de negocio a través del EventBus
 - Actualización de documentación para reflejar el nuevo patrón de desacoplamiento
+- Nuevo modelo RewardContentPack para contener packs de contenido como recompensas
+- Nuevo modelo RewardContentFile para archivos individuales dentro de packs de contenido
+- Actualización del modelo Rank con campos reward_vip_days y reward_content_pack_id para recompensas avanzadas
+- Implementación de relaciones entre rangos y packs de contenido para recompensas personalizadas
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

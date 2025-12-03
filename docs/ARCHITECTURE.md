@@ -127,6 +127,10 @@ Implementado para aumentar la participación y retención de usuarios:
 - **Rank System**: Sistema de niveles basado en puntos que permite a los usuarios progresar a través de diferentes rangos (Bronce, Plata, Oro, Platino, Diamante)
 - **GamificationProfile**: Perfiles de usuarios que almacenan puntos acumulados, rango actual y fecha de última interacción
 - **Recompensas por Rango**: Cada rango tiene una recompensa descriptiva que se desbloquea al alcanzarlo
+- **Sistema de Recompensas Avanzado**: Los rangos ahora incluyen recompensas concretas como días de suscripción VIP y packs de contenido exclusivos
+- **RewardContentPack**: Contenedores de contenido multimedia que se otorgan como recompensas al alcanzar ciertos rangos
+- **RewardContentFile**: Archivos individuales (fotos, videos, documentos) que forman parte de los packs de contenido
+- **Relación entre Rangos y Recompensas**: Los modelos Rank incluyen campos para especificar días VIP y packs de contenido como recompensas
 - **Notificaciones de Gamificación**: Sistema de notificaciones específicas para eventos de gamificación como bienvenida a la gamificación, actualizaciones de puntaje y recompensas desbloqueadas
 - **Plantilla "rank_up"**: **NUEVO** - Notificación específica cuando un usuario sube de rango, mostrando el rango anterior y el nuevo rango
 - **Seed Data**: Inicialización automática de rangos predeterminados en la base de datos

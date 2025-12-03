@@ -118,6 +118,52 @@ Registra solicitudes de acceso gratuito al canal.
 - Individual: `user_id`
 - Compuesto: `user_id` + `request_date`
 
+## Modelos de Sistema de Recompensas
+
+### RewardContentPack
+
+**Tabla**: `reward_content_packs`
+
+Contenedor para packs de contenido que se otorgan como recompensas en el sistema de gamificación.
+
+| Campo | Tipo | Descripción | Valor por defecto |
+|-------|------|-------------|------------------|
+| id | Integer (PK) | ID del pack de contenido | Autoincremental |
+| name | String(100), Unique | Nombre único del pack de contenido | - |
+| created_at | DateTime | Fecha de creación del pack | Fecha actual UTC |
+
+### RewardContentFile
+
+**Tabla**: `reward_content_files`
+
+Archivos individuales que pertenecen a un pack de contenido de recompensa.
+
+| Campo | Tipo | Descripción | Valor por defecto |
+|-------|------|-------------|------------------|
+| id | Integer (PK) | ID del archivo de contenido | Autoincremental |
+| pack_id | Integer FK | ID del pack de contenido al que pertenece | - |
+| file_id | String(255) | ID de Telegram para enviar el archivo | - |
+| file_unique_id | String(255) | ID único para evitar duplicados | - |
+| media_type | String(20) | Tipo de contenido ('photo', 'video', 'document') | - |
+
+## Actualización del Modelo Rank
+
+**Tabla**: `gamification_ranks`
+
+Modelo actualizado para incluir campos de recompensas en el sistema de gamificación.
+
+| Campo | Tipo | Descripción | Valor por defecto |
+|-------|------|-------------|------------------|
+| id | Integer (PK) | ID del rango | Autoincremental |
+| name | String(50), Unique | Nombre del rango (ej: "Bronce", "Plata") | - |
+| min_points | Integer, Unique | Puntos mínimos necesarios para alcanzar el rango | - |
+| reward_description | String(200), Nullable | Descripción de la recompensa asociada | None |
+| reward_vip_days | Integer | Días de suscripción VIP otorgados como recompensa | 0 |
+| reward_content_pack_id | Integer FK, Nullable | ID del pack de contenido otorgado como recompensa | None |
+
+**Índices**:
+- Individual: `min_points` (idx_rank_points)
+
 ## Relaciones
 
 ### UserSubscription ↔ InvitationToken
@@ -128,12 +174,21 @@ Registra solicitudes de acceso gratuito al canal.
 - Relación de uno a muchos (muchos tokens pueden pertenecer a una tarifa)
 - `InvitationToken.tier_id` → `SubscriptionTier.id`
 
+### Rank ↔ RewardContentPack
+- Relación de uno a muchos (un pack de contenido puede estar asociado a múltiples rangos)
+- `Rank.reward_content_pack_id` → `RewardContentPack.id`
+
+### RewardContentPack ↔ RewardContentFile
+- Relación de uno a muchos (un pack de contenido puede contener múltiples archivos)
+- `RewardContentFile.pack_id` → `RewardContentPack.id`
+
 ## Validaciones y Restricciones
 
 ### Validaciones de Integridad
 - `UserSubscription.user_id`: Único para evitar múltiples registros por usuario
 - `InvitationToken.token`: Único para evitar duplicados
 - `SubscriptionTier.name`: Único para evitar tarifas con mismo nombre
+- `RewardContentPack.name`: Único para evitar packs de contenido duplicados
 
 ### Índices
 - Se han definido índices en campos de consulta frecuente para optimizar rendimiento

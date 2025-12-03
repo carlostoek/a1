@@ -548,12 +548,14 @@ Ver [Modelos](MODELS.md) para detalles completos de los modelos de datos.
 
 #### Rank
 
-Modelo que representa los rangos en el sistema de gamificación.
+Modelo que representa los rangos en el sistema de gamificación con campos de recompensas.
 
 - **id**: Identificador único del rango
 - **name**: Nombre del rango (ej: "Bronce", "Plata", "Oro", "Platino", "Diamante")
 - **min_points**: Puntos mínimos necesarios para alcanzar este rango
 - **reward_description**: Descripción de la recompensa asociada al rango
+- **reward_vip_days**: Número de días de suscripción VIP otorgados como recompensa al alcanzar este rango
+- **reward_content_pack_id**: ID del pack de contenido otorgado como recompensa al alcanzar este rango (relación con RewardContentPack)
 - **Índices**: idx_rank_points para búsquedas rápidas por puntos mínimos
 
 #### GamificationProfile
@@ -565,3 +567,24 @@ Modelo que representa el perfil de gamificación de un usuario.
 - **current_rank_id**: ID del rango actual del usuario (relación con Rank)
 - **last_interaction_at**: Fecha de la última interacción del usuario
   - **Mejora**: Utiliza `datetime.now(timezone.utc)` para corregir problemas de zona horaria
+
+### Modelos de Sistema de Recompensas
+
+#### RewardContentPack
+
+Modelo que representa un pack de contenido que se otorga como recompensa en el sistema de gamificación.
+
+- **id**: Identificador único del pack de contenido
+- **name**: Nombre único del pack de contenido (ej: "Pack de Bienvenida", "Set Exclusivo Octubre")
+- **created_at**: Fecha de creación del pack de contenido
+- **Relación**: Contiene múltiples RewardContentFile (uno a muchos)
+
+#### RewardContentFile
+
+Modelo que representa un archivo individual que forma parte de un pack de contenido de recompensa.
+
+- **id**: Identificador único del archivo de contenido
+- **pack_id**: ID del pack de contenido al que pertenece (relación con RewardContentPack)
+- **file_id**: ID de Telegram para enviar el archivo
+- **file_unique_id**: ID único para evitar duplicados
+- **media_type**: Tipo de contenido ('photo', 'video', 'document')
