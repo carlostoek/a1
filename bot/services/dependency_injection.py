@@ -7,6 +7,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.stats_service import StatsService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.notification_service import NotificationService
+from bot.services.event_bus import EventBus
 
 
 class ServiceContainer:
@@ -25,6 +26,7 @@ class ServiceContainer:
         self._subscription_service = SubscriptionService()
         self._stats_service = StatsService()
         self._channel_service = ChannelManagementService()
+        self._event_bus = EventBus()
         # Inicializar otros servicios aquí...
 
     # --- Propiedades de Acceso Rápido ---
@@ -53,6 +55,11 @@ class ServiceContainer:
     def channel_manager(self) -> ChannelManagementService:
         """Acceso al servicio de Gestión de Canales (Posteo, IDs)."""
         return self._channel_service
+
+    @property
+    def bus(self) -> EventBus:
+        """Acceso al servicio de Event Bus (Comunicación desacoplada)."""
+        return self._event_bus
 
 
 # --- Definición del Resolver de Dependencias de Aiogram 3 ---
