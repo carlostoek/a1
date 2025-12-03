@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from enum import Enum
 from typing import Callable, Dict, List, Any, Awaitable
 
 # Definición de tipos para los Listeners (funciones asíncronas)
@@ -16,9 +17,7 @@ class EventBus:
 
     def subscribe(self, event_name: str, handler: EventHandler):
         """Registra una función para escuchar un evento específico."""
-        if event_name not in self._subscribers:
-            self._subscribers[event_name] = []
-        self._subscribers[event_name].append(handler)
+        self._subscribers.setdefault(event_name, []).append(handler)
         self.logger.info(f"Listener registrado para evento: {event_name}")
 
     async def emit(self, event_name: str, data: Dict[str, Any]):
@@ -26,11 +25,8 @@ class EventBus:
         Publica un evento. Ejecuta todos los listeners suscritos de forma concurrente
         sin bloquear el flujo principal (fire-and-forget).
         """
-        if event_name not in self._subscribers:
-            return # Nadie escucha este evento
+        listeners = self._subscribers.get(event_name, [])
 
-        listeners = self._subscribers[event_name]
-        
         # Ejecutar todos los listeners concurrentemente
         # Usamos asyncio.create_task para que si un listener falla o tarda,
         # no detenga al emisor original.
@@ -45,7 +41,7 @@ class EventBus:
             self.logger.error(f"Error en EventBus manejando '{event_name}': {e}", exc_info=True)
 
 # Lista de constantes de eventos conocidos (Para evitar magic strings)
-class Events:
+class Events(str, Enum):
     REACTION_ADDED = "reaction_added"      # Alguien reaccionó
     SUBSCRIPTION_NEW = "subscription_new"  # Alguien compró VIP
     VIP_EXPIRED = "vip_expired"            # Alguien perdió VIP
