@@ -38,9 +38,6 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
 
-    # Initialize notification service
-    notification_service = NotificationService(bot)
-
     # Initialize background task manager
     background_manager = BackgroundTaskManager()
 
@@ -49,7 +46,6 @@ async def main():
 
     # Initialize dispatcher with services container
     dp = Dispatcher()
-    dp['notification_service'] = notification_service
     dp['services'] = service_container
 
     # Include routers
