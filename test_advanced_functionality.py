@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from unittest.mock import AsyncMock
 from bot.config import Settings
 from bot.services.channel_service import ChannelManagementService
-from bot.database.models import Channel
+from bot.services.config_service import ConfigService
 
 
 async def test_advanced_functionality():
@@ -25,48 +25,26 @@ async def test_advanced_functionality():
     async with async_session() as session:
         print("Testing advanced channel management functionality...")
 
-        # Test 1: List channels (should work even if no channels exist)
-        try:
-            channels = await ChannelManagementService.list_channels(session)
-            print(f"✓ Successfully retrieved {len(channels)} channels")
-        except Exception as e:
-            print(f"✗ Error listing channels: {e}")
-
-        # Test 2: Get channel stats
+        # Test 1: Get channel stats
         try:
             stats = await ChannelManagementService.get_channel_stats(session, 'vip')
             print(f"✓ Successfully retrieved VIP stats: {stats}")
         except Exception as e:
             print(f"✗ Error getting VIP stats: {e}")
 
-        # Test 3: Get advanced channel stats (new System A functionality)
+        # Test 2: Test content protection toggle
         try:
-            advanced_stats = await ChannelManagementService.get_advanced_channel_stats(session, mock_bot)
-            print(f"✓ Successfully retrieved advanced stats: {advanced_stats}")
+            result = await ConfigService.toggle_content_protection(session, 'vip', True)
+            print(f"✓ Successfully tested content protection: {result}")
         except Exception as e:
-            print(f"✗ Error getting advanced stats: {e}")
+            print(f"✗ Error testing content protection: {e}")
 
-        # Test 4: Configure channel reactions (new System A functionality)
+        # Test 3: Test cleanup of old requests
         try:
-            result = await ChannelManagementService.configure_channel_reactions(
-                session,
-                123456789,  # dummy channel ID
-                ['👍', '❤️', '🔥']
-            )
-            print(f"✓ Successfully configured channel reactions: {result}")
+            result = await ChannelManagementService.cleanup_old_requests(session)
+            print(f"✓ Successfully tested cleanup of old requests: {result}")
         except Exception as e:
-            print(f"✗ Error configuring channel reactions: {e}")
-
-        # Test 5: Set content protection (new System A functionality)
-        try:
-            result = await ChannelManagementService.set_content_protection(
-                session,
-                123456789,  # dummy channel ID
-                True
-            )
-            print(f"✓ Successfully set content protection: {result}")
-        except Exception as e:
-            print(f"✗ Error setting content protection: {e}")
+            print(f"✗ Error testing cleanup of old requests: {e}")
 
     # Close connections
     await engine.dispose()

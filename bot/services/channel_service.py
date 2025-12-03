@@ -433,3 +433,48 @@ class ChannelManagementService:
         except Exception as e:
             logging.exception(f"Error broadcasting post to {target_channel_type} channel")
             return {"success": False, "error": f"Error inesperado al publicar: {str(e)}"}
+
+    @staticmethod
+    async def cleanup_old_requests(session: AsyncSession, days_old: int = 30) -> Dict[str, Any]:
+        """
+        Clean up old free channel requests that are older than specified days.
+
+        Args:
+            session: Database session
+            days_old: Number of days to consider as "old" (default 30)
+
+        Returns:
+            Dictionary with success status and summary
+        """
+        from sqlalchemy import delete
+        try:
+            # Calculate the date cutoff
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
+
+            # Find old requests that haven't been processed and delete them in bulk
+            condition = (
+                FreeChannelRequest.request_date < cutoff_date,
+                FreeChannelRequest.processed.is_(False)
+            )
+
+            count_result = await session.execute(
+                select(func.count(FreeChannelRequest.id)).where(*condition)
+            )
+            count = count_result.scalar_one()
+
+            if count > 0:
+                await session.execute(delete(FreeChannelRequest).where(*condition))
+
+            await session.commit()
+
+            return {
+                "success": True,
+                "message": f"Se limpiaron {count} solicitudes antiguas ({days_old}+ días)",
+                "cleaned_count": count
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Database error during cleanup: {str(e)}"
+            }

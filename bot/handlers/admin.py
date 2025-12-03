@@ -145,14 +145,14 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
 
         # Use MenuFactory for consistency
         main_options = [
-            ("💎 Gestión VIP", "admin_vip"),
-            ("🆓 Gestión Free", "admin_free"),
-            ("⚙️ Configuración", "admin_config"),
-            ("📊 Estadísticas", "admin_stats"),
+            ("💎 **Gestión VIP**", "admin_vip"),
+            ("💬 **Gestión Free**", "admin_free"),
+            ("📊 **Centro de Reportes**", "admin_stats"),
+            ("⚙️ **Diagnóstico y Config**", "admin_config"),
         ]
 
         menu_data = MenuFactory.create_menu(
-            title="Menú Principal de Administración",
+            title="Panel de Control A1",
             options=main_options,
             description=welcome_text,  # Use welcome text as description
             back_callback=None,  # Command start doesn't have back button
@@ -173,17 +173,17 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
 @admin_router.callback_query(F.data == "admin_main_menu")
 async def admin_main_menu(callback_query: CallbackQuery):
     """Edit message to show main menu using MenuFactory."""
-    # Define main menu options
+    # Define main menu options according to specification
     main_options = [
-        ("💎 Gestión VIP", "admin_vip"),
-        ("🆓 Gestión Free", "admin_free"),
-        ("⚙️ Configuración", "admin_config"),
-        ("📊 Estadísticas", "admin_stats"),
+        ("💎 **Gestión VIP**", "admin_vip"),
+        ("💬 **Gestión Free**", "admin_free"),
+        ("📊 **Centro de Reportes**", "admin_stats"),
+        ("⚙️ **Diagnóstico y Config**", "admin_config"),
     ]
 
     # Generate menu using factory
     menu_data = MenuFactory.create_menu(
-        title="Menú Principal de Administración",
+        title="Panel de Control A1",
         options=main_options,
         back_callback=None,  # Main menu doesn't have back button
         has_main=False   # Main menu doesn't have main button
@@ -200,21 +200,21 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     """Edit message to show VIP menu using MenuFactory."""
     tiers = await ConfigService.get_all_tiers(session)
 
-    # Build VIP menu options using list comprehension
+    # Build VIP menu options according to specification with sections
     options = [
-        (f"🎟️ Generar Token ({tier.name})", f"token_generate_{tier.id}")
-        for tier in tiers
-    ]
+        # -- ACCIONES RÁPIDAS --
+        ("📝 Enviar Post (con Reacciones)", "admin_send_channel_post"),
+        ("🔑 Generar Token", "vip_generate_token"),
 
-    # Agregar opciones VIP adicionales según especificación
-    options.extend([
-        ("📢 Enviar Publicación", "admin_send_channel_post"),
-        ("👥 Gestionar Suscriptores", "vip_manage"),
-        ("📊 Ver Stats", "vip_stats"),
-        ("💰 Configurar Tarifas", "config_tiers"),  # Gestionar niveles de suscripción
-        ("💋 Configurar Reacciones", "vip_config_reactions"),  # Configurar reacciones
-        ("⚙️ Configurar", "vip_config"),  # Opciones de configuración VIP adicionales
-    ])
+        # -- GESTIÓN --
+        ("👥 Base de Suscriptores (Paginado)", "vip_manage"),
+        ("💰 Tarifas y Precios", "vip_config_tiers"),
+
+        # -- CONFIGURACIÓN TÉCNICA --
+        ("💋 Reacciones y Puntos", "vip_config_reactions"),
+        ("🛡️ Protección de Contenido", "vip_toggle_protection"),  # New feature
+        ("⚙️ Vincular ID Canal", "setup_vip_select"),
+    ]
 
     # Check if there are no tiers and add appropriate description
     description = None
@@ -222,7 +222,7 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         description = "❌ No hay tarifas de suscripción activas. Por favor, configure una tarifa primero."
 
     menu_data = MenuFactory.create_menu(
-        title="Menú VIP",
+        title="DASHBOARD VIP",
         options=options,
         description=description,
         back_callback="admin_main_menu",
@@ -238,18 +238,24 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
 @admin_router.callback_query(F.data == "admin_free")
 async def admin_free(callback_query: CallbackQuery):
     """Edit message to show Free menu using MenuFactory."""
-    # Definir opciones del menú FREE según especificación
+    # Definir opciones del menú FREE según especificación con secciones
     free_options = [
-        ("📢 Enviar Publicación", "send_to_free_channel"),
-        ("📊 Ver Stats", "free_stats"),
-        ("⚡ Procesar Pendientes", "process_pending_now"),  # Procesamiento manual de solicitudes pendientes
-        ("⏱️ Configurar Tiempo de Espera", "free_wait_time_config"),  # Configurar tiempo de espera
-        ("💋 Configurar Reacciones", "free_config_reactions"),  # Configurar reacciones
-        ("⚙️ Configurar", "free_config"),  # Opciones de configuración gratuita adicionales
+        # -- SALA DE ESPERA --
+        ("⚡ Procesar Cola Ahora", "process_pending_now"),
+        ("🧹 Limpiar Solicitudes", "cleanup_old_requests"),  # Recuperado del Sistema A
+        ("⏰ Config Tiempo Espera", "set_wait_time"),
+
+        # -- CONTENIDO --
+        ("📝 Enviar Post Free", "send_to_free_channel"),
+
+        # -- CONFIGURACIÓN TÉCNICA --
+        ("💋 Reacciones y Puntos", "free_config_reactions"),
+        ("🛡️ Protección de Contenido", "free_toggle_protection"),  # Nuevo
+        ("⚙️ Vincular ID Canal", "setup_free_select"),
     ]
 
     menu_data = MenuFactory.create_menu(
-        title="Menú Free",
+        title="DASHBOARD FREE",
         options=free_options,
         back_callback="admin_main_menu",
         has_main=True
@@ -263,16 +269,16 @@ async def admin_free(callback_query: CallbackQuery):
 
 @admin_router.callback_query(F.data == "admin_stats")
 async def admin_stats_menu(callback_query: CallbackQuery, session: AsyncSession):
-    """Show main statistics menu with three options: General, VIP, Free."""
-    # Create the main stats menu with three options
+    """Show main statistics menu with specified options."""
+    # Create the main stats menu with specified options
     stats_options = [
-        ("📊 General", "stats_general"),
-        ("💎 VIP", "stats_vip"),
-        ("💬 FREE", "stats_free"),
+        ("📊 Resumen General", "stats_general"),
+        ("💎 Métricas VIP", "stats_vip"),
+        ("💬 Métricas Free", "stats_free"),
     ]
 
     menu_data = MenuFactory.create_menu(
-        title="📊 Estadísticas",
+        title="CENTRO DE REPORTES",
         options=stats_options,
         back_callback="admin_main_menu",
         has_main=True
@@ -714,6 +720,56 @@ async def cancel_post_send(callback_query: CallbackQuery, state: FSMContext):
     await state.clear()
 
 
+@admin_router.callback_query(F.data == "vip_toggle_protection")
+async def vip_toggle_content_protection(callback_query: CallbackQuery, session: AsyncSession):
+    """Toggle content protection for VIP channel."""
+    try:
+        # Get current protection status
+        current_status = await ConfigService.get_content_protection_status(session, "vip")
+
+        # Toggle protection status
+        new_status = not current_status
+        result = await ConfigService.toggle_content_protection(session, "vip", new_status)
+
+        if result["success"]:
+            status_text = "activada" if new_status else "desactivada"
+            await callback_query.answer(f"✅ Protección de contenido VIP {status_text}", show_alert=True)
+
+            # Refresh the menu to show current state
+            await admin_vip(callback_query, session)
+        else:
+            await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
+    except (ServiceError, SQLAlchemyError) as e:
+        await callback_query.answer(f"❌ Error al cambiar protección VIP: {str(e)}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error inesperado al cambiar protección VIP: {str(e)}", show_alert=True)
+
+
+@admin_router.callback_query(F.data == "free_toggle_protection")
+async def free_toggle_content_protection(callback_query: CallbackQuery, session: AsyncSession):
+    """Toggle content protection for Free channel."""
+    try:
+        # Get current protection status
+        current_status = await ConfigService.get_content_protection_status(session, "free")
+
+        # Toggle protection status
+        new_status = not current_status
+        result = await ConfigService.toggle_content_protection(session, "free", new_status)
+
+        if result["success"]:
+            status_text = "activada" if new_status else "desactivada"
+            await callback_query.answer(f"✅ Protección de contenido Free {status_text}", show_alert=True)
+
+            # Refresh the menu to show current state
+            await admin_free(callback_query)
+        else:
+            await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
+    except (ServiceError, SQLAlchemyError) as e:
+        await callback_query.answer(f"❌ Error al cambiar protección Free: {str(e)}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error inesperado al cambiar protección Free: {str(e)}", show_alert=True)
+
+
 @admin_router.callback_query(F.data == "process_pending_now")
 async def process_pending_requests_now(callback_query: CallbackQuery, session: AsyncSession, bot: Bot):
     """Manually trigger the processing of all pending free channel requests."""
@@ -727,8 +783,26 @@ async def process_pending_requests_now(callback_query: CallbackQuery, session: A
         else:
             # Display error message if the operation failed
             await callback_query.answer(f"❌ Error al procesar solicitudes: {result['error']}", show_alert=True)
-    except Exception as e:
+    except (ServiceError, SQLAlchemyError) as e:
         await callback_query.answer(f"❌ Error al procesar solicitudes pendientes: {str(e)}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error inesperado al procesar solicitudes pendientes: {str(e)}", show_alert=True)
+
+
+@admin_router.callback_query(F.data == "cleanup_old_requests")
+async def cleanup_old_requests(callback_query: CallbackQuery, session: AsyncSession):
+    """Manually clean up old free channel requests."""
+    try:
+        result = await ChannelManagementService.cleanup_old_requests(session)
+
+        if result["success"]:
+            await callback_query.answer(result["message"], show_alert=True)
+        else:
+            await callback_query.answer(f"❌ Error al limpiar solicitudes: {result['error']}", show_alert=True)
+    except (ServiceError, SQLAlchemyError) as e:
+        await callback_query.answer(f"❌ Error al limpiar solicitudes: {str(e)}", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"❌ Error inesperado al limpiar solicitudes: {str(e)}", show_alert=True)
 
 
 # Callback handlers for VIP subscriber management
@@ -1230,3 +1304,43 @@ async def process_channel_input(message: Message, state: FSMContext, session: As
 
     # Clear the state
     await state.clear()
+
+
+# Placeholder callback for coming soon features
+@admin_router.callback_query(F.data == "feature_coming_soon")
+async def feature_coming_soon(callback_query: CallbackQuery):
+    """Generic callback for features that are coming soon."""
+    await callback_query.answer("ℹ️ Próximamente: Esta funcionalidad está en desarrollo.", show_alert=True)
+
+
+@admin_router.callback_query(F.data == "vip_generate_token")
+async def vip_generate_token(callback_query: CallbackQuery, session: AsyncSession):
+    """Generate VIP token with a simple flow"""
+    # Get all tiers
+    tiers = await ConfigService.get_all_tiers(session)
+
+    if not tiers:
+        await callback_query.answer("❌ No hay tarifas configuradas. Crea una tarifa primero.", show_alert=True)
+        return
+
+    # Create a simple menu to select a tier
+    keyboard = InlineKeyboardBuilder()
+    for tier in tiers:
+        keyboard.button(text=f"{tier.name} (${tier.price_usd})", callback_data=f"token_generate_{tier.id}")
+
+    keyboard.button(text="Volver", callback_data="admin_vip")
+    keyboard.adjust(1)
+
+    await safe_edit_message(
+        callback_query,
+        "Selecciona una tarifa para generar un token:",
+        reply_markup=keyboard.as_markup()
+    )
+
+
+@admin_router.callback_query(F.data == "vip_config_tiers")
+async def vip_config_tiers(callback_query: CallbackQuery, session: AsyncSession):
+    """Configure VIP tiers - redirect to config tiers"""
+    await callback_query.answer("Accediendo a la configuración de tarifas...", show_alert=False)
+    # Call the existing handler
+    await manage_tiers_menu(callback_query, session)

@@ -12,9 +12,11 @@ class BotConfig(Base):
     vip_channel_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     free_channel_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     wait_time_minutes: Mapped[int] = mapped_column(default=0)
-    vip_reactions: Mapped[dict] = mapped_column(JSON, default=dict)
-    free_reactions: Mapped[dict] = mapped_column(JSON, default=dict)
+    vip_reactions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    free_reactions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     subscription_fees: Mapped[dict] = mapped_column(JSON, default=dict)
+    vip_content_protection: Mapped[bool] = mapped_column(default=False)
+    free_content_protection: Mapped[bool] = mapped_column(default=False)
 
 
 class UserSubscription(Base):
