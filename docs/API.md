@@ -97,6 +97,31 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
   - **Retorna**: True si la operación fue exitosa, False en caso contrario
   - Elimina primero todos los archivos asociados al pack antes de eliminar el pack
 
+- **get_all_ranks(session)**
+  - Recupera todos los rangos de la base de datos ordenados por puntos
+  - Parámetros:
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: Lista de instancias Rank ordenadas por min_points
+  - Utilizado para mostrar la lista de rangos disponibles en el menú de administración
+
+- **update_rank_rewards(rank_id, session, vip_days=None, pack_id=None)**
+  - Actualiza la configuración de recompensas para un rango específico
+  - Parámetros:
+    - `rank_id`: ID del rango a actualizar
+    - `session`: Sesión de base de datos asíncrona
+    - `vip_days`: Nuevos días de recompensa VIP (si se proporciona)
+    - `pack_id`: Nuevo ID de pack de contenido (si se proporciona, None para eliminar)
+  - **Retorna**: Instancia Rank actualizada o None si el rango no se encuentra
+  - Permite configurar recompensas de días VIP y packs de contenido asociados al rango
+
+- **get_rank_by_id(rank_id, session)**
+  - Recupera un rango específico por su ID
+  - Parámetros:
+    - `rank_id`: ID del rango a recuperar
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: Instancia Rank o None si no se encuentra
+  - Utilizado para obtener detalles específicos de un rango para edición
+
 ### NotificationService
 
 #### Propiedades de Acceso Rápido

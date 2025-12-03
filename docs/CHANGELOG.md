@@ -66,6 +66,18 @@
 - Integración con menú VIP añadiendo opción "Packs de Recompensas"
 - Soporte para subida de fotos, videos y documentos como contenido multimedia
 - Infraestructura de contexto de retorno para flujos de creación anidados
+- Nuevo FSM RankConfigStates para el flujo de configuración de recompensas de rangos
+- Métodos GamificationService: get_all_ranks, update_rank_rewards, get_rank_by_id para gestión de rangos
+- Nuevo handler vip_manage_ranks_menu para mostrar y gestionar rangos
+- Nuevo handler rank_edit_detail para editar detalles de rangos
+- Nuevo handler rank_set_vip_days_start para iniciar el flujo de configuración de días VIP
+- Nuevo handler process_vip_days_input para procesar la entrada de días VIP
+- Nuevo handler rank_set_pack_start para iniciar el flujo de asignación de packs
+- Nuevo handler rank_bind_pack para vincular packs a rangos
+- Nuevo handler rank_create_pack_nested para creación anidada de packs desde rangos
+- Integración con menú VIP añadiendo opción "Rangos" para gestión de recompensas
+- Sistema de edición de recompensas por rango (días VIP y packs de contenido)
+- Sistema de contexto de retorno para mantener el flujo lógico durante creación anidada
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

@@ -163,6 +163,32 @@ Implementado para administrar contenido multimedia como recompensas en el sistem
   - Visualización de packs existentes
   - Creación de nuevos packs
 
+## Sistema de Gestión de Rangos y Recompensas
+
+Implementado para administrar recompensas asociadas a los rangos de gamificación:
+
+- **RankConfigStates**: Estados FSM para el flujo de configuración de recompensas de rangos
+  - `waiting_vip_days`: Espera el número de días VIP que se otorgan como recompensa
+- **GamificationService Methods**: Funciones específicas para la gestión de rangos y recompensas
+  - `get_all_ranks`: Recupera todos los rangos disponibles
+  - `update_rank_rewards`: Actualiza las recompensas (días VIP y packs de contenido) asociadas a un rango
+  - `get_rank_by_id`: Recupera un rango específico por su ID
+- **Integración con Menú VIP**: Opción "Rangos" en el menú de administración VIP
+  - Acceso directo a la gestión de rangos y recompensas
+  - Visualización de rangos existentes con puntos mínimos
+  - Edición de recompensas por rango
+- **Configuración de Recompensas**: Sistema para asignar recompensas a rangos
+  - Asignación de días de suscripción VIP como recompensa
+  - Asignación de packs de contenido como recompensa
+  - Visualización de recompensas actuales en la edición de rangos
+- **Flujo de Creación Anidada**: Sistema para crear packs de contenido directamente desde la configuración de rangos
+  - Opción para crear nuevo pack desde la interfaz de edición de rango
+  - Mantenimiento del contexto de navegación para regresar al rango después de crear pack
+  - Sistema de "return context" para mantener el flujo lógico de navegación
+- **Modelo Rank Mejorado**: Campo adicional en el modelo Rank para almacenar recompensas
+  - `reward_vip_days`: Número de días VIP otorgados como recompensa
+  - `reward_content_pack_id`: ID del pack de contenido otorgado como recompensa (relación con RewardContentPack)
+
 ## Mejoras de Código
 
 ### Seguridad de Tipos

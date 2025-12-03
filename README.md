@@ -46,6 +46,14 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - **Soporte para múltiples tipos de medios**: Fotos, videos y documentos
   - **Integración con menú VIP**: Nueva opción "Packs de Recompensas" en el menú de administración VIP
   - **Infraestructura de contexto de retorno**: Sistema para mantener el contexto en flujos de creación anidados
+- **Sistema de Gestión de Rangos y Recompensas**: Nuevo sistema integral para configurar recompensas asociadas a rangos de gamificación
+  - **RankConfigStates**: Estados FSM para el flujo de configuración de recompensas de rangos
+  - **Métodos GamificationService**: Funciones `get_all_ranks`, `update_rank_rewards`, `get_rank_by_id` para la gestión de rangos
+  - **Integración con menú VIP**: Nueva opción "Rangos" en el menú de administración VIP
+  - **Configuración de recompensas**: Posibilidad de asignar días VIP y packs de contenido a cada rango
+  - **Flujo de creación anidada**: Sistema para crear packs de contenido directamente desde la configuración de rangos
+  - **Flujo de edición de rangos**: Interfaz para modificar días VIP y asignar packs a rangos existentes
+  - **Sistema de contexto de retorno**: Funcionalidad para mantener el contexto durante flujos anidados de creación y edición
 
 ## Instalación
 
