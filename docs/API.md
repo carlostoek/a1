@@ -52,6 +52,7 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `session`: Sesión de base de datos activa
   - No retorna valor
   - **Mejora de eficiencia**: Utiliza `limit(1)` para mejorar la eficiencia de la consulta al buscar el nuevo rango
+  - **NUEVO**: Integra con `_deliver_rewards` para entregar recompensas configuradas para el nuevo rango
 
 - **_notify_rank_up(user_id, old_rank_id, new_rank, session)**
   - Envía notificación al usuario cuando sube de rango
@@ -62,6 +63,18 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `session`: Sesión de base de datos activa
   - No retorna valor
   - Implementa mejoras de manejo de errores con SQLAlchemyError y manejo de casos donde no se encuentra el rango anterior
+
+- **_deliver_rewards(user_id, rank, session)**
+  - Entrega recompensas configuradas para un rango al usuario
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario que subió de rango
+    - `rank`: Objeto Rank que contiene la configuración de recompensas
+    - `session`: Sesión de base de datos activa
+  - No retorna valor
+  - **Entrega VIP**: Si `rank.reward_vip_days > 0`, llama a `subscription_service.add_vip_days` y envía notificación "vip_reward"
+  - **Entrega de Pack**: Si `rank.reward_content_pack_id` está configurado, recupera archivos del pack y los envía como álbum o archivos individuales, luego envía notificación "pack_reward"
+  - **Clasificación de medios**: Separa archivos en álbum (fotos y videos) e individuales (documentos, otros) para envío apropiado
+  - **Manejo de errores**: Implementa manejo específico para envío de álbumes y archivos individuales
 
 - **create_content_pack(name, session)**
   - Crea un nuevo pack de contenido con el nombre especificado
@@ -161,6 +174,8 @@ El servicio de notificaciones gestiona el envío de mensajes a los usuarios basa
 - **score_update**: Actualización de puntaje del usuario
 - **reward_unlocked**: Notificación de recompensa desbloqueada
 - **rank_up**: **NUEVO** - Notificación cuando un usuario sube de rango, mostrando el rango anterior y el nuevo rango
+- **vip_reward**: **NUEVO** - Notificación cuando se otorgan días VIP como recompensa por subir de rango, incluyendo número de días y nueva fecha de expiración
+- **pack_reward**: **NUEVO** - Notificación cuando se otorga un pack de contenido como recompensa por subir de rango, incluyendo nombre del pack y rango alcanzado
 - **vip_expiration_warning**: Aviso de expiración de suscripción VIP
 - **generic_alert**: Mensaje genérico de alerta
 
@@ -193,6 +208,29 @@ El servicio de suscripciones gestiona todo lo relacionado con tokens VIP y suscr
 - **send_token_redemption_success(message, tier, session)**
   - Envía mensaje de éxito y enlace de invitación al canal VIP
   - Genera un enlace de invitación único con límite de uso
+
+- **add_vip_days(user_id, days, session)**
+  - Añade días VIP a la suscripción de un usuario, manejando diferentes estados apropiadamente
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario a quien se añaden días VIP
+    - `days`: Número de días VIP a añadir
+    - `session`: Sesión de base de datos activa
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,               # Indica si la operación fue exitosa
+      "new_expiry_date": datetime,     # Nueva fecha de expiración (si éxito)
+      "days_added": int,               # Número de días añadidos
+      "status": string,                # Estado de la suscripción ("active")
+      "role": string,                  # Rol del usuario ("vip")
+      "error": string (opcional)       # Mensaje de error (si falló)
+    }
+    ```
+  - **Casos manejados**:
+    - Usuario con suscripción activa: extiende la fecha de expiración actual
+    - Usuario con suscripción expirada: comienza nueva suscripción desde la fecha actual
+    - Usuario sin suscripción previa: crea nueva suscripción
+  - **Manejo de errores**: Implementa rollback de base de datos en caso de error y retorna mensaje de error apropiado
 
 - **get_active_vips_paginated(page, page_size, session)**
   - Obtiene lista paginada de suscriptores VIP activos

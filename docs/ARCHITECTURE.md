@@ -107,6 +107,7 @@ Implementado para desacoplar módulos y permitir comunicación entre componentes
 - Los listeners se ejecutan concurrentemente y errores en un listener no afectan a otros
 - El handler `process_inline_reaction` emite eventos `Events.REACTION_ADDED` al EventBus cuando los usuarios reaccionan a publicaciones
 - El servicio `GamificationService` escucha el evento `Events.REACTION_ADDED` y otorga puntos automáticamente a los usuarios
+- El servicio `GamificationService` implementa `_check_rank_up` que detecta subidas de rango y llama a `_deliver_rewards` para entregar recompensas configuradas
 
 ### Singleton con Caché
 El `ConfigService` implementa un patrón de caché en memoria para la configuración del bot.
@@ -138,6 +139,27 @@ Implementado para aumentar la participación y retención de usuarios:
 - **GamificationService**: Servicio central que gestiona la lógica de puntos, rangos y notificaciones de gamificación
 - **Integración con Event Bus**: El servicio se suscribe al evento `Events.REACTION_ADDED` para otorgar puntos automáticamente cuando los usuarios reaccionan a publicaciones
 - **Sistema de Notificaciones Automáticas**: Cuando un usuario sube de rango, se envía automáticamente una notificación personalizada usando el servicio de notificaciones
+
+## Sistema de Entrega Automática de Recompensas
+
+Implementado para entregar recompensas configuradas a usuarios cuando suben de rango:
+
+- **_deliver_rewards**: Método central en GamificationService que procesa y entrega recompensas configuradas para un rango
+- **Entrega VIP**: Sistema automático que extiende la suscripción VIP de un usuario al subir de rango
+  - Llama a `subscription_service.add_vip_days` para añadir días configurados como recompensa
+  - Envía notificación "vip_reward" con información sobre los días añadidos y nueva fecha de expiración
+  - Maneja diferentes estados de suscripción (activa, expirada, sin suscripción previa)
+- **Entrega de Pack de Contenido**: Sistema automático que envía archivos multimedia como recompensa al subir de rango
+  - Recupera archivos asociados al pack configurado para el rango
+  - Clasifica archivos en álbum (fotos y videos) e individuales (documentos, otros tipos)
+  - Envía álbumes usando `send_media_group` y archivos individuales usando métodos específicos
+  - Envía notificación "pack_reward" con nombre del pack y rango alcanzado
+- **Integración con _check_rank_up**: El método de verificación de subida de rango ahora llama a `_deliver_rewards` cuando se detecta una subida
+- **Notificaciones de Recompensas**: Plantillas específicas para notificar recompensas entregadas
+  - **vip_reward**: Notificación cuando se otorgan días VIP como recompensa por subir de rango
+  - **pack_reward**: Notificación cuando se otorga un pack de contenido como recompensa por subir de rango
+- **Manejo de Errores**: Implementación de manejo específico para errores en envío de recompensas sin afectar el flujo principal de gamificación
+- **Clasificación de Medios**: Sistema inteligente que clasifica archivos multimedia para envío apropiado como álbum o archivos individuales
 
 ## Sistema de Gestión de Packs de Contenido
 
