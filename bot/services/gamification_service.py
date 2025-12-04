@@ -1,10 +1,14 @@
 import logging
 from typing import Dict, Any, List, Optional
+from datetime import datetime, timezone
+from aiogram import Bot
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
+from aiogram.types import InputMediaPhoto, InputMediaVideo
 from bot.database.models import GamificationProfile, Rank, RewardContentPack, RewardContentFile
 from bot.services.event_bus import Events
+from bot.services.subscription_service import SubscriptionService
 
 
 class GamificationService:
@@ -14,10 +18,12 @@ class GamificationService:
     # Constants
     POINTS_PER_REACTION = 10
 
-    def __init__(self, session_maker: async_sessionmaker, event_bus: 'EventBus', notification_service: 'NotificationService'):
+    def __init__(self, session_maker: async_sessionmaker, event_bus: 'EventBus', notification_service: 'NotificationService', subscription_service: 'SubscriptionService', bot: 'Bot'):
         self.session_maker = session_maker
         self.event_bus = event_bus
         self.notification_service = notification_service
+        self.subscription_service = subscription_service
+        self.bot = bot
         self.logger = logging.getLogger(__name__)
 
     def setup_listeners(self):
@@ -115,11 +121,127 @@ class GamificationService:
                 # Aquí podemos enviar una notificación de nivel subido
                 await self._notify_rank_up(profile.user_id, old_rank_id, new_rank, session)
 
+                # Entregar las recompensas configuradas para este nuevo rango
+                await self._deliver_rewards(profile.user_id, new_rank, session)
+
                 self.logger.info(f"User {profile.user_id} leveled up from rank {old_rank_id} to {new_rank.id}")
         except SQLAlchemyError as e:
             self.logger.error(f"Database error checking rank up for user {profile.user_id}: {e}", exc_info=True)
         except Exception as e:
             self.logger.error(f"Unexpected error checking rank up for user {profile.user_id}: {e}", exc_info=True)
+
+    async def _deliver_rewards(self, user_id: int, rank: Rank, session):
+        """
+        Deliver rewards configured for a rank to the user.
+
+        Args:
+            user_id: ID of the user who leveled up
+            rank: Rank object containing reward configuration
+            session: Database session
+        """
+        # A. Entrega VIP (rank.reward_vip_days > 0)
+        if rank.reward_vip_days and rank.reward_vip_days > 0:
+            # Add VIP days to user's subscription
+            result = await self.subscription_service.add_vip_days(
+                user_id=user_id,
+                days=rank.reward_vip_days,
+                session=session
+            )
+
+            if result["success"]:
+                # Get formatted date for notification
+                expiry_date_str = result["new_expiry_date"].strftime("%d/%m/%Y")
+
+                # Send notification using the notification service
+                await self.notification_service.send_notification(
+                    user_id,
+                    "vip_reward",
+                    context_data={
+                        "days": rank.reward_vip_days,
+                        "date": expiry_date_str
+                    }
+                )
+
+                self.logger.info(f"VIP reward of {rank.reward_vip_days} days delivered to user {user_id}")
+            else:
+                self.logger.error(f"Failed to deliver VIP reward to user {user_id}: {result.get('error', 'Unknown error')}")
+
+        # B. Entrega de Pack (rank.reward_content_pack_id is not None)
+        if rank.reward_content_pack_id:
+            # Get all files associated with the pack
+            result = await session.execute(
+                select(RewardContentFile).where(
+                    RewardContentFile.pack_id == rank.reward_content_pack_id
+                )
+            )
+            content_files = result.scalars().all()
+
+            if content_files:
+                # Classify media files
+                album_media = []
+                documents = []
+
+                for content_file in content_files:
+                    file_obj = {
+                        'file_id': content_file.file_id,
+                        'media_type': content_file.media_type
+                    }
+
+                    if content_file.media_type in ['photo', 'video']:
+                        album_media.append(file_obj)
+                    else:
+                        # Treat documents, audio, etc. as individual files
+                        documents.append(file_obj)
+
+                # Send album media (photos and videos) using send_media_group
+                if album_media:
+                    media_group = []
+                    for media_item in album_media:
+                        if media_item['media_type'] == 'photo':
+                            media_group.append(InputMediaPhoto(media=media_item['file_id']))
+                        elif media_item['media_type'] == 'video':
+                            media_group.append(InputMediaVideo(media=media_item['file_id']))
+
+                    try:
+                        await self.bot.send_media_group(chat_id=user_id, media=media_group)
+                        self.logger.info(f"Sent {len(media_group)} media items as album to user {user_id}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to send media group to user {user_id}: {e}")
+
+                # Send individual documents
+                for doc in documents:
+                    try:
+                        if doc['media_type'] == 'document':
+                            await self.bot.send_document(chat_id=user_id, document=doc['file_id'])
+                        elif doc['media_type'] == 'photo':  # In case any photo wasn't sent in album
+                            await self.bot.send_photo(chat_id=user_id, photo=doc['file_id'])
+                        elif doc['media_type'] == 'video':  # In case any video wasn't sent in album
+                            await self.bot.send_video(chat_id=user_id, video=doc['file_id'])
+
+                        self.logger.info(f"Sent individual {doc['media_type']} to user {user_id}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to send individual {doc['media_type']} to user {user_id}: {e}")
+
+                # Get pack name for notification
+                pack_result = await session.execute(
+                    select(RewardContentPack).where(
+                        RewardContentPack.id == rank.reward_content_pack_id
+                    )
+                )
+                pack = pack_result.scalar_one_or_none()
+                pack_name = pack.name if pack else "Pack Desconocido"
+
+                # Send notification about the pack reward
+                await self.notification_service.send_notification(
+                    user_id,
+                    "pack_reward",
+                    context_data={
+                        "pack_name": pack_name,
+                        "rank_name": rank.name
+                    }
+                )
+
+                self.logger.info(f"Content pack '{pack_name}' delivered to user {user_id}")
 
     async def _notify_rank_up(self, user_id: int, old_rank_id: int, new_rank: Rank, session):
         """
