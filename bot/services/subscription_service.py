@@ -488,7 +488,7 @@ class SubscriptionService:
             await session.commit()
 
             # Return the new state information for notifications
-            final_expiry = existing_subscription.expiry_date if existing_subscription else new_expiry
+            final_expiry = existing_subscription.expiry_date if existing_subscription else expiry_date
             return {
                 "success": True,
                 "new_expiry_date": final_expiry,

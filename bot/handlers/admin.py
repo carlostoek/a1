@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command, CommandObject
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from aiogram.exceptions import TelegramBadRequest
 from bot.middlewares.auth import AdminAuthMiddleware
 from bot.middlewares.db import DBSessionMiddleware
@@ -19,7 +19,7 @@ from bot.services.stats_service import StatsService
 from bot.services.dependency_injection import Services
 from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.services.event_bus import Events
-from bot.database.models import RewardContentFile
+from bot.database.models import RewardContentFile, RewardContentPack
 from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates, ContentPackCreationStates, RankConfigStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
@@ -1426,6 +1426,51 @@ async def admin_content_packs_menu(callback_query: CallbackQuery, session: Async
     )
 
 
+# Handler for viewing pack details
+@admin_router.callback_query(F.data.startswith("pack_view_"))
+async def pack_view_detail(callback_query: CallbackQuery, session: AsyncSession, services: Services):
+    """
+    Show detailed view for a content pack.
+    """
+    # Extract pack ID
+    pack_id = int(callback_query.data.split("_")[2])
+
+    # Get the pack
+    result = await session.execute(
+        select(RewardContentPack).where(RewardContentPack.id == pack_id)
+    )
+    pack = result.scalar_one_or_none()
+
+    if not pack:
+        await callback_query.answer("❌ Pack no encontrado.", show_alert=True)
+        return
+
+    # Count files in the pack
+    files_result = await session.execute(
+        select(func.count(RewardContentFile.id)).where(RewardContentFile.pack_id == pack_id)
+    )
+    file_count = files_result.scalar()
+
+    # Create message text with pack information
+    text = (
+        f"📦 **Pack de Contenido: {pack.name}**\n\n"
+        f"📅 **Fecha de Creación**: {pack.created_at.strftime('%d/%m/%Y %H:%M')}\n"
+        f"🖼️ **Archivos**: {file_count}\n\n"
+        f"Utilice este pack asignándolo a un rango o como recompensa."
+    )
+
+    # Create keyboard with options
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="Volver a Packs", callback_data="admin_content_packs")
+    keyboard.adjust(1)
+
+    await safe_edit_message(
+        callback_query,
+        text,
+        reply_markup=keyboard.as_markup()
+    )
+
+
 # Handler to start content pack creation
 @admin_router.callback_query(F.data == "pack_create_new")
 async def start_pack_creation(callback_query: CallbackQuery, state: FSMContext):
@@ -1669,6 +1714,102 @@ async def rank_edit_detail(callback_query: CallbackQuery, session: AsyncSession,
     )
 
 
+# Helper function to display rank details (to avoid mock objects)
+async def display_rank_detail(chat_id: int, rank_id: int, session: AsyncSession, services: Services, bot):
+    """
+    Helper function to display rank details in different contexts (used to avoid mock objects).
+    """
+    # Get the rank
+    rank = await services.gamification.get_rank_by_id(rank_id, session)
+
+    if not rank:
+        # Send error message since we can't use callback_query.answer
+        await bot.send_message(chat_id, "❌ Rango no encontrado.")
+        return
+
+    # Get the associated pack if any
+    pack_name = "Ninguno"
+    if rank.reward_content_pack_id:
+        # We need to get pack information as well
+        pack_result = await session.execute(
+            select(RewardContentPack).where(RewardContentPack.id == rank.reward_content_pack_id)
+        )
+        pack = pack_result.scalar_one_or_none()
+        if pack:
+            pack_name = pack.name
+
+    # Create message text with current configuration
+    text = (
+        f"🏆 **Rango: {rank.name}**\n\n"
+        f"⭐️ **Puntos**: {rank.min_points}\n"
+        f"🎁 **Premio VIP**: {rank.reward_vip_days} días\n"
+        f"📦 **Pack**: {pack_name}"
+    )
+
+    # Create keyboard with edit options
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="✏️ Editar Días VIP", callback_data=f"rank_set_vip_{rank.id}")
+    keyboard.button(text="📦 Asignar Pack", callback_data=f"rank_set_pack_{rank.id}")
+    keyboard.button(text="⬅️ Volver", callback_data="vip_manage_ranks")
+
+    keyboard.adjust(1)
+
+    # Send message with rank details
+    await bot.edit_message_text(
+        chat_id=chat_id,
+        message_id=None,  # This won't work with edit_message_text, we need a different approach
+        text=text,
+        reply_markup=keyboard.as_markup()
+    )
+
+
+async def show_rank_detail_message(chat_id: int, rank_id: int, session: AsyncSession, services: Services, bot):
+    """
+    Helper function to send rank details as a new message (alternative approach).
+    """
+    # Get the rank
+    rank = await services.gamification.get_rank_by_id(rank_id, session)
+
+    if not rank:
+        # Send error message since we can't use callback_query.answer
+        await bot.send_message(chat_id, "❌ Rango no encontrado.")
+        return
+
+    # Get the associated pack if any
+    pack_name = "Ninguno"
+    if rank.reward_content_pack_id:
+        # We need to get pack information as well
+        pack_result = await session.execute(
+            select(RewardContentPack).where(RewardContentPack.id == rank.reward_content_pack_id)
+        )
+        pack = pack_result.scalar_one_or_none()
+        if pack:
+            pack_name = pack.name
+
+    # Create message text with current configuration
+    text = (
+        f"🏆 **Rango: {rank.name}**\n\n"
+        f"⭐️ **Puntos**: {rank.min_points}\n"
+        f"🎁 **Premio VIP**: {rank.reward_vip_days} días\n"
+        f"📦 **Pack**: {pack_name}"
+    )
+
+    # Create keyboard with edit options
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="✏️ Editar Días VIP", callback_data=f"rank_set_vip_{rank.id}")
+    keyboard.button(text="📦 Asignar Pack", callback_data=f"rank_set_pack_{rank.id}")
+    keyboard.button(text="⬅️ Volver", callback_data="vip_manage_ranks")
+
+    keyboard.adjust(1)
+
+    # Send message with rank details
+    await bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        reply_markup=keyboard.as_markup()
+    )
+
+
 # Handler to set VIP days for a rank
 @admin_router.callback_query(F.data.startswith("rank_set_vip_"))
 async def rank_set_vip_days_start(callback_query: CallbackQuery, state: FSMContext):
@@ -1734,12 +1875,8 @@ async def process_vip_days_input(message: Message, state: FSMContext, session: A
         # Confirm and show updated rank
         await message.reply(f"✅ Días VIP actualizados a {vip_days}.")
 
-        # Show updated rank details
-        await rank_edit_detail(
-            type('obj', (object,), {'data': f'rank_edit_{rank_id}', 'message': message, 'answer': lambda: None})(),
-            session,
-            services
-        )
+        # Show updated rank details by sending a new message with the details
+        await show_rank_detail_message(message.chat.id, rank_id, session, services, message.bot)
 
     except ValueError:
         await message.reply("❌ Por favor, introduce un número válido. Inténtalo de nuevo:")
@@ -1826,12 +1963,8 @@ async def rank_bind_pack(callback_query: CallbackQuery, session: AsyncSession, s
     # Confirm and return to rank edit
     await callback_query.answer(f"✅ Pack '{pack_name}' asignado al rango.", show_alert=True)
 
-    # Show updated rank details
-    await rank_edit_detail(
-        type('obj', (object,), {'data': f'rank_edit_{rank_id}', 'message': callback_query.message, 'answer': lambda: None})(),
-        session,
-        services
-    )
+    # Show updated rank details by sending a new message with the details
+    await show_rank_detail_message(callback_query.message.chat.id, rank_id, session, services, callback_query.message.bot)
 
 
 # Handler for nested pack creation

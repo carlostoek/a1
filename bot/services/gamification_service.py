@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -205,8 +206,10 @@ class GamificationService:
                     try:
                         await self.bot.send_media_group(chat_id=user_id, media=media_group)
                         self.logger.info(f"Sent {len(media_group)} media items as album to user {user_id}")
+                    except TelegramAPIError as e:
+                        self.logger.error(f"Telegram API error sending media group to user {user_id}: {e}")
                     except Exception as e:
-                        self.logger.error(f"Failed to send media group to user {user_id}: {e}")
+                        self.logger.error(f"Unexpected error sending media group to user {user_id}: {e}")
 
                 # Send individual documents
                 for doc in documents:
@@ -219,8 +222,10 @@ class GamificationService:
                             await self.bot.send_video(chat_id=user_id, video=doc['file_id'])
 
                         self.logger.info(f"Sent individual {doc['media_type']} to user {user_id}")
+                    except TelegramAPIError as e:
+                        self.logger.error(f"Telegram API error sending individual {doc['media_type']} to user {user_id}: {e}")
                     except Exception as e:
-                        self.logger.error(f"Failed to send individual {doc['media_type']} to user {user_id}: {e}")
+                        self.logger.error(f"Unexpected error sending individual {doc['media_type']} to user {user_id}: {e}")
 
                 # Get pack name for notification
                 pack_result = await session.execute(
@@ -390,27 +395,17 @@ class GamificationService:
             True if successful, False otherwise
         """
         try:
-            # Delete all files associated with the pack first
-            await session.execute(
-                select(RewardContentFile).where(RewardContentFile.pack_id == pack_id)
-            )
-            # SQLAlchemy should handle the foreign key constraint with cascade delete if configured,
-            # but we handle it explicitly for safety
-            await session.execute(
-                "DELETE FROM reward_content_files WHERE pack_id = :pack_id",
-                {"pack_id": pack_id}
-            )
-
-            # Delete the pack itself
+            # Get the pack to delete (this will trigger cascade deletion of files if properly configured)
             pack_result = await session.execute(
-                "DELETE FROM reward_content_packs WHERE id = :pack_id",
-                {"pack_id": pack_id}
+                select(RewardContentPack).where(RewardContentPack.id == pack_id)
             )
+            pack = pack_result.scalar_one_or_none()
 
-            await session.commit()
+            if pack:
+                # Use ORM to delete, which will handle cascade deletion if properly configured in the model
+                await session.delete(pack)
+                await session.commit()
 
-            # Check if any pack was deleted
-            if pack_result.rowcount > 0:
                 self.logger.info(f"Deleted content pack: {pack_id}")
                 return True
             else:

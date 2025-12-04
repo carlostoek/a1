@@ -100,7 +100,7 @@ class RewardContentPack(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relación inversa (para saber qué archivos tiene)
-    # files = relationship("RewardContentFile", back_populates="pack", cascade="all, delete-orphan")
+    files = relationship("RewardContentFile", back_populates="pack", cascade="all, delete-orphan")
 
 
 class RewardContentFile(Base):
@@ -113,7 +113,7 @@ class RewardContentFile(Base):
     file_unique_id: Mapped[str] = mapped_column(String(255))  # Para evitar duplicados
     media_type: Mapped[str] = mapped_column(String(20))  # 'photo', 'video', 'document'
 
-    # pack = relationship("RewardContentPack", back_populates="files")
+    pack = relationship("RewardContentPack", back_populates="files")
 
 
 class GamificationProfile(Base):
