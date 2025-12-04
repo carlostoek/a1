@@ -225,6 +225,7 @@ Implementado para administrar recompensas asociadas a los rangos de gamificació
 - Mejora en la retroalimentación de errores al usuario
 - **PR23**: Mejoras en el manejo de errores con SQLAlchemyError y manejo de excepciones más robusto en GamificationService
 - **PR23**: Manejo específico de errores de TelegramAPIError en NotificationService
+- **PR24**: Mejora del manejo de excepciones con manejo específico de `TelegramAPIError` para errores de la API de Telegram
 
 ### Estructura de Importación
 - Organización de importaciones siguiendo estilo PEP 8
@@ -237,6 +238,7 @@ Implementado para administrar recompensas asociadas a los rangos de gamificació
 ### Limpieza de Código
 - **PR23**: Eliminación de variables no utilizadas en `_on_reaction_added` para mejorar la claridad del código
 - **PR23**: Corrección del problema de zona horaria en `GamificationProfile` usando `datetime.now(timezone.utc)`
+- **PR24**: Refactorización para evitar objetos mock en la gestión de rangos para mejorar la claridad del código
 
 ## Base de Datos
 
@@ -279,6 +281,12 @@ Implementado para administrar recompensas asociadas a los rangos de gamificació
    - Rango actual del usuario
    - Fecha de última interacción
    - **PR23**: Corrección de la zona horaria en `last_interaction_at` usando `datetime.now(timezone.utc)`
+
+### Relaciones SQLAlchemy
+- **PR24**: Implementación de relaciones SQLAlchemy descomentadas en modelos de base de datos para mejor integridad referencial
+- Relación entre `RewardContentPack` y `RewardContentFile` con eliminación en cascada
+- Relación entre `Rank` y `RewardContentPack` para recompensas de rangos
+- Relación entre `GamificationProfile` y `Rank` para seguimiento de rangos de usuarios
 
 ## Seguridad
 

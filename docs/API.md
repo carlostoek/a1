@@ -108,7 +108,7 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `pack_id`: ID del pack de contenido a eliminar
     - `session`: Sesión de base de datos asíncrona
   - **Retorna**: True si la operación fue exitosa, False en caso contrario
-  - Elimina primero todos los archivos asociados al pack antes de eliminar el pack
+  - **Implementación PR24**: Utiliza eliminación en cascada ORM para eliminar primero todos los archivos asociados al pack antes de eliminar el pack
 
 - **get_all_ranks(session)**
   - Recupera todos los rangos de la base de datos ordenados por puntos
@@ -166,7 +166,7 @@ El servicio de notificaciones gestiona el envío de mensajes a los usuarios basa
     - `template_name`: Nombre de la plantilla a usar
     - `context_data`: Datos de contexto para formatear la plantilla (opcional)
     - `reply_markup`: Teclado inline para adjuntar al mensaje (opcional)
-  - Implementa mejoras de manejo de errores con manejo específico de TelegramAPIError
+  - Implementa mejoras de manejo de errores con manejo específico de TelegramAPIError (PR24)
 
 #### Plantillas Disponibles
 
@@ -230,6 +230,7 @@ El servicio de suscripciones gestiona todo lo relacionado con tokens VIP y suscr
     - Usuario con suscripción activa: extiende la fecha de expiración actual
     - Usuario con suscripción expirada: comienza nueva suscripción desde la fecha actual
     - Usuario sin suscripción previa: crea nueva suscripción
+  - **Corrección de bug PR24**: Corrección del cálculo de `new_expiry` para asegurar que la fecha de expiración se calcule correctamente en todos los escenarios
   - **Manejo de errores**: Implementa rollback de base de datos en caso de error y retorna mensaje de error apropiado
 
 - **get_active_vips_paginated(page, page_size, session)**
@@ -611,6 +612,25 @@ Handler que procesa reacciones inline de usuarios a publicaciones en canales.
   - Emite evento `Events.REACTION_ADDED` al EventBus con datos del usuario, canal, emoji y mensaje
   - Implementa el patrón de desacoplamiento entre capa de UI y lógica de negocio
 
+### pack_view_detail
+
+Handler que muestra detalles de un pack de contenido multimedia en el panel de administración.
+
+#### Función
+
+- **pack_view_detail(callback_query: CallbackQuery, session: AsyncSession, services: Services)**
+  - Muestra información detallada sobre un pack de contenido multimedia
+  - Parámetros:
+    - `callback_query`: Objeto de consulta de callback de Aiogram que contiene el ID del pack
+    - `session`: Sesión de base de datos para consultas
+    - `services`: Contenedor de servicios inyectado para acceso a otros servicios
+  - No retorna valor
+  - Extrae el ID del pack de los datos del callback (formato: "pack_view_{pack_id}")
+  - Consulta la base de datos para obtener información del pack y contar archivos asociados
+  - Muestra información del pack incluyendo nombre, fecha de creación y cantidad de archivos
+  - Proporciona botón de retorno al menú de packs de contenido
+  - **Añadido en PR24**: Implementación del handler para visualizar detalles de packs de contenido
+
 ## Manejo de Errores
 
 ### Excepciones Personalizadas
@@ -627,6 +647,8 @@ Definidas en `bot/services/exceptions.py`:
 
 - **TelegramBadRequest**: Errores devueltos por la API de Telegram
 - Manejo específico para "message is not modified" en ediciones de mensajes
+- **Mejora PR24**: Implementación de manejo específico de `TelegramAPIError` para errores de la API de Telegram
+- **Mejora PR24**: Refactorización para evitar objetos mock en la gestión de rangos para mejorar la claridad del código
 
 ## Bases de Datos
 
@@ -636,6 +658,7 @@ Definidas en `bot/services/exceptions.py`:
 - Sesiones gestionadas por middleware DBSessionMiddleware
 - Transacciones manuales con rollback en caso de error
 - Caché de configuración para reducir consultas
+- **Mejora PR24**: Relaciones SQLAlchemy descomentadas en modelos de base de datos para mejor integridad referencial
 
 ### Modelos de Base de Datos
 

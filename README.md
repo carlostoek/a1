@@ -40,6 +40,13 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - **Mejora de eficiencia** en la consulta `_check_rank_up` con uso de `limit(1)`
   - **Implementación de constantes** como POINTS_PER_REACTION para valores fijos
   - **Mejoras de manejo de errores** con SQLAlchemyError y manejo específico de errores de Telegram
+- **Mejoras de PR24**:
+  - **Corrección de bug de `new_expiry`** en SubscriptionService para calcular correctamente la fecha de expiración al extender suscripciones
+  - **Implementación de relaciones SQLAlchemy** descomentadas en modelos de base de datos para mejor integridad referencial
+  - **Adición del handler `pack_view`** en admin handlers para visualizar detalles de packs de contenido
+  - **Refactorización para evitar objetos mock** en la gestión de rangos para mejorar la claridad del código
+  - **Implementación de eliminación en cascada ORM** en GamificationService para eliminar packs de contenido y sus archivos asociados
+  - **Mejora del manejo de excepciones** con manejo específico de `TelegramAPIError` para errores de la API de Telegram
 - **Sistema de Gestión de Packs de Contenido**: Nuevo sistema para crear y administrar packs de contenido multimedia como recompensas
   - **ContentPackCreationStates**: Estados FSM para el flujo de creación de packs de contenido
   - **Métodos GamificationService**: Funciones `create_content_pack`, `add_file_to_pack`, `get_all_content_packs`, `delete_content_pack`

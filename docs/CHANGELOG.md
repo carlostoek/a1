@@ -121,3 +121,7 @@
 - **PR12**: Corrección de problemas en el servicio de configuración con funciones sueltas
 - **PR12**: Mejora de la validación de tipos de canales en servicios
 - **PR23**: Corrección del problema de zona horaria en GamificationProfile modelo
+- **PR24**: Corrección del bug de `new_expiry` en SubscriptionService donde no se calculaba correctamente la fecha de expiración al extender suscripciones
+- **PR24**: Implementación de manejo específico de excepciones `TelegramAPIError` para errores de la API de Telegram en lugar de capturar todas las excepciones genéricas
+- **PR24**: Eliminación de objetos mock en la gestión de rangos para mejorar la claridad del código
+- **PR24**: Implementación de eliminación en cascada ORM en GamificationService para eliminar packs de contenido y sus archivos asociados
