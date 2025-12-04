@@ -3,7 +3,6 @@ Background tasks for the Telegram Admin Bot.
 Includes periodic tasks like sending free channel links and checking expired VIPs.
 """
 import asyncio
-import logging
 from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator
 
@@ -16,9 +15,10 @@ from bot.database.models import FreeChannelRequest, UserSubscription, BotConfig
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.config import Settings
+from bot.utils.sexy_logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BackgroundTaskManager:
@@ -39,17 +39,17 @@ class BackgroundTaskManager:
         if self.running:
             logger.warning("Background tasks are already running.")
             return
-        
+
         self.running = True
-        logger.info("Starting background tasks...")
-        
+        logger.startup("Starting background tasks...")
+
         # Create tasks for the background loops
         self.tasks = [
             asyncio.create_task(self.process_free_requests(bot)),
             asyncio.create_task(self.check_expired_vips(bot))
         ]
-        
-        logger.info("Background tasks started.")
+
+        logger.success("Background tasks started.")
     
     async def stop(self):
         """
@@ -57,10 +57,10 @@ class BackgroundTaskManager:
         """
         if not self.running:
             return
-        
+
         self.running = False
-        logger.info("Stopping background tasks...")
-        
+        logger.shutdown("Stopping background tasks...")
+
         # Cancel all running tasks
         for task in self.tasks:
             if not task.done():
@@ -68,17 +68,17 @@ class BackgroundTaskManager:
                 try:
                     await task
                 except asyncio.CancelledError:
-                    logger.info("Background task cancelled.")
-        
+                    logger.task("Background task cancelled.")
+
         self.tasks.clear()
-        logger.info("Background tasks stopped.")
+        logger.shutdown("Background tasks stopped.")
     
     async def process_free_requests(self, bot: Bot):
         """
         Loop to process free channel requests after wait time.
         Runs every 60 seconds.
         """
-        logger.info("Starting process_free_requests loop...")
+        logger.task("Starting process_free_requests loop...")
         
         while self.running:
             try:
@@ -122,7 +122,7 @@ class BackgroundTaskManager:
                                     request.processed_at = datetime.now(timezone.utc)
                                     await session.commit()
 
-                                    logger.info(f"Sent welcome message to user {request.user_id}")
+                                    logger.user(f"Sent welcome message to user {request.user_id}")
                                 except Exception as e:
                                     # If user blocked the bot or other error, mark as processed anyway
                                     # to avoid retrying forever
@@ -161,7 +161,7 @@ class BackgroundTaskManager:
         Loop to check for expired VIP subscriptions and send reminders.
         Runs every 60 minutes.
         """
-        logger.info("Starting check_expired_vips loop...")
+        logger.task("Starting check_expired_vips loop...")
         
         while self.running:
             try:
