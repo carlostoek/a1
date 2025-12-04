@@ -17,6 +17,8 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
 - **Estadísticas**: Seguimiento de usuarios activos y solicitudes pendientes
 - **Sistema de Gamificación**: Sistema de puntos y rangos con recompensas para aumentar la participación de usuarios
 - **Perfiles de Gamificación**: Almacenamiento de puntos, rangos y actividad de usuarios
+- **Sistema de Recompensas Avanzado**: Rangos incluyen recompensas concretas como días de suscripción VIP y packs de contenido exclusivos
+- **RewardContentPack y RewardContentFile**: Modelos para gestionar packs de contenido multimedia como recompensas
 - **GamificationService**: Servicio completo de gamificación que otorga puntos automáticamente por reacciones y notifica subidas de rango
 - **Integración con Event Bus**: Sistema automatizado que otorga puntos cuando los usuarios reaccionan a publicaciones
 - **Handler de Reacciones Inline**: Nuevo handler `process_inline_reaction` que procesa reacciones de usuarios y emite eventos al EventBus
@@ -38,6 +40,35 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - **Mejora de eficiencia** en la consulta `_check_rank_up` con uso de `limit(1)`
   - **Implementación de constantes** como POINTS_PER_REACTION para valores fijos
   - **Mejoras de manejo de errores** con SQLAlchemyError y manejo específico de errores de Telegram
+- **Mejoras de PR24**:
+  - **Corrección de bug de `new_expiry`** en SubscriptionService para calcular correctamente la fecha de expiración al extender suscripciones
+  - **Implementación de relaciones SQLAlchemy** descomentadas en modelos de base de datos para mejor integridad referencial
+  - **Adición del handler `pack_view`** en admin handlers para visualizar detalles de packs de contenido
+  - **Refactorización para evitar objetos mock** en la gestión de rangos para mejorar la claridad del código
+  - **Implementación de eliminación en cascada ORM** en GamificationService para eliminar packs de contenido y sus archivos asociados
+  - **Mejora del manejo de excepciones** con manejo específico de `TelegramAPIError` para errores de la API de Telegram
+- **Sistema de Gestión de Packs de Contenido**: Nuevo sistema para crear y administrar packs de contenido multimedia como recompensas
+  - **ContentPackCreationStates**: Estados FSM para el flujo de creación de packs de contenido
+  - **Métodos GamificationService**: Funciones `create_content_pack`, `add_file_to_pack`, `get_all_content_packs`, `delete_content_pack`
+  - **Soporte para múltiples tipos de medios**: Fotos, videos y documentos
+  - **Integración con menú VIP**: Nueva opción "Packs de Recompensas" en el menú de administración VIP
+  - **Infraestructura de contexto de retorno**: Sistema para mantener el contexto en flujos de creación anidados
+- **Sistema de Gestión de Rangos y Recompensas**: Nuevo sistema integral para configurar recompensas asociadas a rangos de gamificación
+  - **RankConfigStates**: Estados FSM para el flujo de configuración de recompensas de rangos
+  - **Métodos GamificationService**: Funciones `get_all_ranks`, `update_rank_rewards`, `get_rank_by_id` para la gestión de rangos
+  - **Integración con menú VIP**: Nueva opción "Rangos" en el menú de administración VIP
+  - **Configuración de recompensas**: Posibilidad de asignar días VIP y packs de contenido a cada rango
+  - **Flujo de creación anidada**: Sistema para crear packs de contenido directamente desde la configuración de rangos
+  - **Flujo de edición de rangos**: Interfaz para modificar días VIP y asignar packs a rangos existentes
+  - **Sistema de contexto de retorno**: Funcionalidad para mantener el contexto durante flujos anidados de creación y edición
+- **Sistema de Entrega Automática de Recompensas**: Implementación completa del sistema que entrega recompensas configuradas cuando los usuarios suben de rango
+  - **Entrega VIP**: Sistema automático que extiende la suscripción VIP de usuarios al subir de rango mediante el método `add_vip_days` del SubscriptionService
+  - **Entrega de Pack de Contenido**: Sistema automático que envía archivos multimedia como álbum o archivos individuales cuando los usuarios suben de rango
+  - **Método _deliver_rewards**: Función central en GamificationService que procesa y entrega recompensas configuradas
+  - **Integración con _check_rank_up**: El método de verificación de subida de rango ahora llama a `_deliver_rewards` para entregar recompensas
+  - **Nuevas plantillas de notificación**: "vip_reward" y "pack_reward" para notificar a usuarios sobre recompensas entregadas
+  - **Clasificación de Medios**: Sistema inteligente que clasifica archivos multimedia para envío apropiado como álbum o archivos individuales
+  - **Manejo de Errores**: Implementación de manejo específico para errores en envío de recompensas sin afectar el flujo principal de gamificación
 
 ## Instalación
 

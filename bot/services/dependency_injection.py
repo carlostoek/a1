@@ -34,7 +34,9 @@ class ServiceContainer:
         self._gamification_service = GamificationService(
             session_maker=async_session_maker,
             event_bus=self._event_bus,
-            notification_service=self._notification_service
+            notification_service=self._notification_service,
+            subscription_service=self._subscription_service,
+            bot=self.bot
         )
         # IMPORTANTE: Iniciar los listeners
         self._gamification_service.setup_listeners()

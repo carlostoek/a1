@@ -12,6 +12,8 @@ class NotificationService:
         "score_update": "🏆 **Actualización de Puntaje:**\n¡Has ganado {points} puntos por tu actividad! Puntaje total: {total_points}.",
         "reward_unlocked": "🎁 **Recompensa Desbloqueada:**\n¡Felicitaciones! Has alcanzado el rango **{rank}** y desbloqueado {reward}.",
         "rank_up": "🏆 **¡Felicidades!**\nHas subido de rango: **{old_rank}** → **{new_rank}**",
+        "vip_reward": "👑 **¡Recompensa de Rango!**\nHas ganado **{days} días** de acceso VIP. Tu nueva fecha de expiración es: **{date}**",
+        "pack_reward": "📦 **¡Pack Desbloqueado!**\nAquí tienes tu recompensa **'{pack_name}'** por alcanzar el rango **{rank_name}**.",
         "vip_expiration_warning": "🚨 **Aviso VIP:**\nTu suscripción VIP expira en {days} días. ¡No te quedes fuera!",
         "generic_alert": "📢 **Alerta:** {message}"
     }

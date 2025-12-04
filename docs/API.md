@@ -52,6 +52,7 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `session`: Sesión de base de datos activa
   - No retorna valor
   - **Mejora de eficiencia**: Utiliza `limit(1)` para mejorar la eficiencia de la consulta al buscar el nuevo rango
+  - **NUEVO**: Integra con `_deliver_rewards` para entregar recompensas configuradas para el nuevo rango
 
 - **_notify_rank_up(user_id, old_rank_id, new_rank, session)**
   - Envía notificación al usuario cuando sube de rango
@@ -62,6 +63,77 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
     - `session`: Sesión de base de datos activa
   - No retorna valor
   - Implementa mejoras de manejo de errores con SQLAlchemyError y manejo de casos donde no se encuentra el rango anterior
+
+- **_deliver_rewards(user_id, rank, session)**
+  - Entrega recompensas configuradas para un rango al usuario
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario que subió de rango
+    - `rank`: Objeto Rank que contiene la configuración de recompensas
+    - `session`: Sesión de base de datos activa
+  - No retorna valor
+  - **Entrega VIP**: Si `rank.reward_vip_days > 0`, llama a `subscription_service.add_vip_days` y envía notificación "vip_reward"
+  - **Entrega de Pack**: Si `rank.reward_content_pack_id` está configurado, recupera archivos del pack y los envía como álbum o archivos individuales, luego envía notificación "pack_reward"
+  - **Clasificación de medios**: Separa archivos en álbum (fotos y videos) e individuales (documentos, otros) para envío apropiado
+  - **Manejo de errores**: Implementa manejo específico para envío de álbumes y archivos individuales
+
+- **create_content_pack(name, session)**
+  - Crea un nuevo pack de contenido con el nombre especificado
+  - Parámetros:
+    - `name`: Nombre único para el pack de contenido
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: La instancia RewardContentPack creada o None si el nombre ya existe
+  - Verifica que no exista un pack con el mismo nombre antes de crearlo
+
+- **add_file_to_pack(pack_id, file_id, unique_id, media_type, session)**
+  - Añade un archivo multimedia a un pack de contenido existente
+  - Parámetros:
+    - `pack_id`: ID del pack de contenido al que se agregará el archivo
+    - `file_id`: ID de archivo de Telegram
+    - `unique_id`: Identificador único de Telegram para el archivo
+    - `media_type`: Tipo de medio ('photo', 'video', 'document')
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: True si la operación fue exitosa, False en caso contrario
+  - Soporta fotos, videos y documentos como tipos de medios
+
+- **get_all_content_packs(session)**
+  - Recupera todos los packs de contenido de la base de datos
+  - Parámetros:
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: Lista de instancias RewardContentPack ordenadas por nombre
+  - Utilizado para mostrar la lista de packs disponibles en el menú de administración
+
+- **delete_content_pack(pack_id, session)**
+  - Elimina un pack de contenido y todos sus archivos asociados
+  - Parámetros:
+    - `pack_id`: ID del pack de contenido a eliminar
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: True si la operación fue exitosa, False en caso contrario
+  - **Implementación PR24**: Utiliza eliminación en cascada ORM para eliminar primero todos los archivos asociados al pack antes de eliminar el pack
+
+- **get_all_ranks(session)**
+  - Recupera todos los rangos de la base de datos ordenados por puntos
+  - Parámetros:
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: Lista de instancias Rank ordenadas por min_points
+  - Utilizado para mostrar la lista de rangos disponibles en el menú de administración
+
+- **update_rank_rewards(rank_id, session, vip_days=None, pack_id=None)**
+  - Actualiza la configuración de recompensas para un rango específico
+  - Parámetros:
+    - `rank_id`: ID del rango a actualizar
+    - `session`: Sesión de base de datos asíncrona
+    - `vip_days`: Nuevos días de recompensa VIP (si se proporciona)
+    - `pack_id`: Nuevo ID de pack de contenido (si se proporciona, None para eliminar)
+  - **Retorna**: Instancia Rank actualizada o None si el rango no se encuentra
+  - Permite configurar recompensas de días VIP y packs de contenido asociados al rango
+
+- **get_rank_by_id(rank_id, session)**
+  - Recupera un rango específico por su ID
+  - Parámetros:
+    - `rank_id`: ID del rango a recuperar
+    - `session`: Sesión de base de datos asíncrona
+  - **Retorna**: Instancia Rank o None si no se encuentra
+  - Utilizado para obtener detalles específicos de un rango para edición
 
 ### NotificationService
 
@@ -94,7 +166,7 @@ El servicio de notificaciones gestiona el envío de mensajes a los usuarios basa
     - `template_name`: Nombre de la plantilla a usar
     - `context_data`: Datos de contexto para formatear la plantilla (opcional)
     - `reply_markup`: Teclado inline para adjuntar al mensaje (opcional)
-  - Implementa mejoras de manejo de errores con manejo específico de TelegramAPIError
+  - Implementa mejoras de manejo de errores con manejo específico de TelegramAPIError (PR24)
 
 #### Plantillas Disponibles
 
@@ -102,6 +174,8 @@ El servicio de notificaciones gestiona el envío de mensajes a los usuarios basa
 - **score_update**: Actualización de puntaje del usuario
 - **reward_unlocked**: Notificación de recompensa desbloqueada
 - **rank_up**: **NUEVO** - Notificación cuando un usuario sube de rango, mostrando el rango anterior y el nuevo rango
+- **vip_reward**: **NUEVO** - Notificación cuando se otorgan días VIP como recompensa por subir de rango, incluyendo número de días y nueva fecha de expiración
+- **pack_reward**: **NUEVO** - Notificación cuando se otorga un pack de contenido como recompensa por subir de rango, incluyendo nombre del pack y rango alcanzado
 - **vip_expiration_warning**: Aviso de expiración de suscripción VIP
 - **generic_alert**: Mensaje genérico de alerta
 
@@ -134,6 +208,30 @@ El servicio de suscripciones gestiona todo lo relacionado con tokens VIP y suscr
 - **send_token_redemption_success(message, tier, session)**
   - Envía mensaje de éxito y enlace de invitación al canal VIP
   - Genera un enlace de invitación único con límite de uso
+
+- **add_vip_days(user_id, days, session)**
+  - Añade días VIP a la suscripción de un usuario, manejando diferentes estados apropiadamente
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario a quien se añaden días VIP
+    - `days`: Número de días VIP a añadir
+    - `session`: Sesión de base de datos activa
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,               # Indica si la operación fue exitosa
+      "new_expiry_date": datetime,     # Nueva fecha de expiración (si éxito)
+      "days_added": int,               # Número de días añadidos
+      "status": string,                # Estado de la suscripción ("active")
+      "role": string,                  # Rol del usuario ("vip")
+      "error": string (opcional)       # Mensaje de error (si falló)
+    }
+    ```
+  - **Casos manejados**:
+    - Usuario con suscripción activa: extiende la fecha de expiración actual
+    - Usuario con suscripción expirada: comienza nueva suscripción desde la fecha actual
+    - Usuario sin suscripción previa: crea nueva suscripción
+  - **Corrección de bug PR24**: Corrección del cálculo de `new_expiry` para asegurar que la fecha de expiración se calcule correctamente en todos los escenarios
+  - **Manejo de errores**: Implementa rollback de base de datos en caso de error y retorna mensaje de error apropiado
 
 - **get_active_vips_paginated(page, page_size, session)**
   - Obtiene lista paginada de suscriptores VIP activos
@@ -514,6 +612,25 @@ Handler que procesa reacciones inline de usuarios a publicaciones en canales.
   - Emite evento `Events.REACTION_ADDED` al EventBus con datos del usuario, canal, emoji y mensaje
   - Implementa el patrón de desacoplamiento entre capa de UI y lógica de negocio
 
+### pack_view_detail
+
+Handler que muestra detalles de un pack de contenido multimedia en el panel de administración.
+
+#### Función
+
+- **pack_view_detail(callback_query: CallbackQuery, session: AsyncSession, services: Services)**
+  - Muestra información detallada sobre un pack de contenido multimedia
+  - Parámetros:
+    - `callback_query`: Objeto de consulta de callback de Aiogram que contiene el ID del pack
+    - `session`: Sesión de base de datos para consultas
+    - `services`: Contenedor de servicios inyectado para acceso a otros servicios
+  - No retorna valor
+  - Extrae el ID del pack de los datos del callback (formato: "pack_view_{pack_id}")
+  - Consulta la base de datos para obtener información del pack y contar archivos asociados
+  - Muestra información del pack incluyendo nombre, fecha de creación y cantidad de archivos
+  - Proporciona botón de retorno al menú de packs de contenido
+  - **Añadido en PR24**: Implementación del handler para visualizar detalles de packs de contenido
+
 ## Manejo de Errores
 
 ### Excepciones Personalizadas
@@ -530,6 +647,8 @@ Definidas en `bot/services/exceptions.py`:
 
 - **TelegramBadRequest**: Errores devueltos por la API de Telegram
 - Manejo específico para "message is not modified" en ediciones de mensajes
+- **Mejora PR24**: Implementación de manejo específico de `TelegramAPIError` para errores de la API de Telegram
+- **Mejora PR24**: Refactorización para evitar objetos mock en la gestión de rangos para mejorar la claridad del código
 
 ## Bases de Datos
 
@@ -539,6 +658,7 @@ Definidas en `bot/services/exceptions.py`:
 - Sesiones gestionadas por middleware DBSessionMiddleware
 - Transacciones manuales con rollback en caso de error
 - Caché de configuración para reducir consultas
+- **Mejora PR24**: Relaciones SQLAlchemy descomentadas en modelos de base de datos para mejor integridad referencial
 
 ### Modelos de Base de Datos
 
@@ -548,12 +668,14 @@ Ver [Modelos](MODELS.md) para detalles completos de los modelos de datos.
 
 #### Rank
 
-Modelo que representa los rangos en el sistema de gamificación.
+Modelo que representa los rangos en el sistema de gamificación con campos de recompensas.
 
 - **id**: Identificador único del rango
 - **name**: Nombre del rango (ej: "Bronce", "Plata", "Oro", "Platino", "Diamante")
 - **min_points**: Puntos mínimos necesarios para alcanzar este rango
 - **reward_description**: Descripción de la recompensa asociada al rango
+- **reward_vip_days**: Número de días de suscripción VIP otorgados como recompensa al alcanzar este rango
+- **reward_content_pack_id**: ID del pack de contenido otorgado como recompensa al alcanzar este rango (relación con RewardContentPack)
 - **Índices**: idx_rank_points para búsquedas rápidas por puntos mínimos
 
 #### GamificationProfile
@@ -565,3 +687,24 @@ Modelo que representa el perfil de gamificación de un usuario.
 - **current_rank_id**: ID del rango actual del usuario (relación con Rank)
 - **last_interaction_at**: Fecha de la última interacción del usuario
   - **Mejora**: Utiliza `datetime.now(timezone.utc)` para corregir problemas de zona horaria
+
+### Modelos de Sistema de Recompensas
+
+#### RewardContentPack
+
+Modelo que representa un pack de contenido que se otorga como recompensa en el sistema de gamificación.
+
+- **id**: Identificador único del pack de contenido
+- **name**: Nombre único del pack de contenido (ej: "Pack de Bienvenida", "Set Exclusivo Octubre")
+- **created_at**: Fecha de creación del pack de contenido
+- **Relación**: Contiene múltiples RewardContentFile (uno a muchos)
+
+#### RewardContentFile
+
+Modelo que representa un archivo individual que forma parte de un pack de contenido de recompensa.
+
+- **id**: Identificador único del archivo de contenido
+- **pack_id**: ID del pack de contenido al que pertenece (relación con RewardContentPack)
+- **file_id**: ID de Telegram para enviar el archivo
+- **file_unique_id**: ID único para evitar duplicados
+- **media_type**: Tipo de contenido ('photo', 'video', 'document')

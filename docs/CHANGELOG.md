@@ -52,6 +52,41 @@
 - Implementación completa del flujo de gamificación: reacción → puntos → rank-ups
 - Desacoplamiento entre capa de UI y lógica de negocio a través del EventBus
 - Actualización de documentación para reflejar el nuevo patrón de desacoplamiento
+- Nuevo modelo RewardContentPack para contener packs de contenido como recompensas
+- Nuevo modelo RewardContentFile para archivos individuales dentro de packs de contenido
+- Actualización del modelo Rank con campos reward_vip_days y reward_content_pack_id para recompensas avanzadas
+- Implementación de relaciones entre rangos y packs de contenido para recompensas personalizadas
+- Nuevo FSM ContentPackCreationStates para el flujo de creación de packs de contenido
+- Métodos GamificationService: create_content_pack, add_file_to_pack, get_all_content_packs, delete_content_pack
+- Nuevo handler admin_content_packs_menu para gestión de packs de contenido
+- Nuevo handler start_pack_creation para iniciar el flujo de creación de packs
+- Nuevo handler process_pack_name para procesar el nombre del pack
+- Nuevo handler process_media_file para procesar archivos multimedia
+- Nuevo handler finish_pack_creation para finalizar la creación de packs
+- Integración con menú VIP añadiendo opción "Packs de Recompensas"
+- Soporte para subida de fotos, videos y documentos como contenido multimedia
+- Infraestructura de contexto de retorno para flujos de creación anidados
+- Nuevo FSM RankConfigStates para el flujo de configuración de recompensas de rangos
+- Métodos GamificationService: get_all_ranks, update_rank_rewards, get_rank_by_id para gestión de rangos
+- Nuevo handler vip_manage_ranks_menu para mostrar y gestionar rangos
+- Nuevo handler rank_edit_detail para editar detalles de rangos
+- Nuevo handler rank_set_vip_days_start para iniciar el flujo de configuración de días VIP
+- Nuevo handler process_vip_days_input para procesar la entrada de días VIP
+- Nuevo handler rank_set_pack_start para iniciar el flujo de asignación de packs
+- Nuevo handler rank_bind_pack para vincular packs a rangos
+- Nuevo handler rank_create_pack_nested para creación anidada de packs desde rangos
+- Integración con menú VIP añadiendo opción "Rangos" para gestión de recompensas
+- Sistema de edición de recompensas por rango (días VIP y packs de contenido)
+- Sistema de contexto de retorno para mantener el flujo lógico durante creación anidada
+- Implementación del sistema de entrega automática de recompensas al subir de rango
+- Método `_deliver_rewards` en GamificationService para procesar y entregar recompensas configuradas
+- Entrega automática de días VIP mediante `subscription_service.add_vip_days` cuando se sube de rango
+- Entrega automática de packs de contenido multimedia como álbum o archivos individuales
+- Clasificación inteligente de archivos multimedia para envío apropiado como álbum o archivos individuales
+- Nuevas plantillas de notificación "vip_reward" y "pack_reward" para informar sobre recompensas entregadas
+- Integración del sistema de entrega de recompensas con `_check_rank_up` para activación automática
+- Manejo específico de errores en envío de recompensas sin afectar el flujo principal de gamificación
+- Actualización de documentación para reflejar el nuevo sistema de entrega de recompensas
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones
@@ -86,3 +121,7 @@
 - **PR12**: Corrección de problemas en el servicio de configuración con funciones sueltas
 - **PR12**: Mejora de la validación de tipos de canales en servicios
 - **PR23**: Corrección del problema de zona horaria en GamificationProfile modelo
+- **PR24**: Corrección del bug de `new_expiry` en SubscriptionService donde no se calculaba correctamente la fecha de expiración al extender suscripciones
+- **PR24**: Implementación de manejo específico de excepciones `TelegramAPIError` para errores de la API de Telegram en lugar de capturar todas las excepciones genéricas
+- **PR24**: Eliminación de objetos mock en la gestión de rangos para mejorar la claridad del código
+- **PR24**: Implementación de eliminación en cascada ORM en GamificationService para eliminar packs de contenido y sus archivos asociados

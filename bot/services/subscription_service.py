@@ -427,3 +427,84 @@ class SubscriptionService:
                 f"Contacta a un administrador para acceso al canal VIP."
             )
             await message.reply(response_text)
+
+    @staticmethod
+    async def add_vip_days(user_id: int, days: int, session: AsyncSession) -> Dict[str, Any]:
+        """
+        Add VIP days to a user's subscription, handling different states appropriately.
+
+        Args:
+            user_id: ID of the user to add VIP days to
+            days: Number of days to add
+            session: Database session
+
+        Returns:
+            Dictionary with new expiry date and status information
+        """
+        try:
+            # Get the current time
+            now = datetime.now(timezone.utc)
+
+            # Check for existing subscription
+            result = await session.execute(
+                select(UserSubscription).where(
+                    UserSubscription.user_id == user_id
+                )
+            )
+            existing_subscription = result.scalars().first()
+
+            if existing_subscription:
+                # Case A: User has existing subscription
+                # Check if it's active and not expired
+                is_active = (
+                    existing_subscription.status == "active" and
+                    existing_subscription.expiry_date > now
+                )
+
+                if is_active:
+                    # Extend the current expiry date
+                    extended_expiry = existing_subscription.expiry_date + timedelta(days=days)
+                    existing_subscription.expiry_date = extended_expiry
+                    existing_subscription.role = "vip"  # Ensure role is VIP
+                else:
+                    # Case B: User is expired or not active, start a new subscription
+                    start_date = max(now, existing_subscription.expiry_date if existing_subscription.expiry_date else now)
+                    new_expiry = start_date + timedelta(days=days)
+                    existing_subscription.expiry_date = new_expiry
+                    existing_subscription.status = "active"
+                    existing_subscription.role = "vip"
+            else:
+                # Case C: User is new or has no record, create new subscription
+                expiry_date = now + timedelta(days=days)
+                new_subscription = UserSubscription(
+                    user_id=user_id,
+                    join_date=now,
+                    expiry_date=expiry_date,
+                    status="active",
+                    role="vip"
+                )
+                session.add(new_subscription)
+
+            await session.commit()
+
+            # Return the new state information for notifications
+            final_expiry = existing_subscription.expiry_date if existing_subscription else expiry_date
+            return {
+                "success": True,
+                "new_expiry_date": final_expiry,
+                "days_added": days,
+                "status": "active",
+                "role": "vip"
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Database error: {str(e)}"
+            }
+        except Exception as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Unexpected error: {str(e)}"
+            }

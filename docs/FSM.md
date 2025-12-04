@@ -128,6 +128,33 @@ admin → vip_config_reactions/free_config_reactions
 
 Los estados se limpian explícitamente una vez completada la operación correspondiente usando `await state.clear()` para evitar conflictos con futuras interacciones.
 
+## ContentPackCreationStates
+
+Gestiona la creación de packs de contenido multimedia como recompensas.
+
+**Estados**:
+- `waiting_pack_name`: Espera el nombre único del pack de contenido
+- `waiting_media_files`: Bucle para subir múltiples archivos multimedia (fotos, videos, documentos)
+
+**Flujo**:
+1. Administrador selecciona "Crear Nuevo Pack" en menú de packs
+2. Bot solicita nombre del pack → `waiting_pack_name`
+3. Usuario envía nombre → Pack creado, bot solicita archivos → `waiting_media_files`
+4. Usuario envía archivos uno por uno (fotos, videos, documentos)
+5. Usuario selecciona "Finalizar" → Pack completado, estado limpiado
+
+## RankConfigStates
+
+Gestiona la configuración de recompensas para rangos de gamificación.
+
+**Estados**:
+- `waiting_vip_days`: Espera el número de días VIP que se otorgan como recompensa
+
+**Flujo**:
+1. Administrador selecciona "Editar Días VIP" en edición de rango
+2. Bot solicita número de días VIP → `waiting_vip_days`
+3. Usuario envía número → Rango actualizado con días VIP, estado limpiado
+
 ## Almacenamiento de Datos Temporales
 
-Durante los flujos FSM, se utilizan `state.update_data()` y `state.get_data()` para almacenar temporalmente información entre estados, como el tipo de canal o datos de tarifas en creación.
+Durante los flujos FSM, se utilizan `state.update_data()` y `state.get_data()` para almacenar temporalmente información entre estados, como el tipo de canal, datos de tarifas en creación, ID de packs o rangos, y contexto de retorno para flujos anidados.
