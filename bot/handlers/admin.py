@@ -232,12 +232,43 @@ async def cmd_help(message: Message):
 
 # Navigation callback handlers
 @admin_router.callback_query(F.data == "admin_main_menu")
-async def admin_main_menu(callback_query: CallbackQuery):
+async def admin_main_menu(callback_query: CallbackQuery, session: AsyncSession, services: Services):
     """Edit message to show main menu using MenuFactory."""
+    # Get the bot configuration to check if channels are configured
+    config = await ConfigService.get_bot_config(session)
+
+    # Get channel information for VIP and Free channels
+    # Default button text
+    vip_menu_text = "💎 **Gestión VIP**"
+    free_menu_text = "💬 **Gestión Free**"
+
+    # Try to get the actual channel names if configured
+    if config.vip_channel_id:
+        try:
+            # Get channel info from Telegram using the bot
+            chat = await callback_query.bot.get_chat(chat_id=config.vip_channel_id)
+            # Use the channel title if available, otherwise use the ID
+            channel_name = chat.title if chat.title else f"VIP-{config.vip_channel_id}"
+            vip_menu_text = f"💎 **{channel_name}**"
+        except Exception:
+            # If there's an error getting the channel info, just show the configured status
+            vip_menu_text = f"💎 **VIP Configurado**"
+
+    if config.free_channel_id:
+        try:
+            # Get channel info from Telegram using the bot
+            chat = await callback_query.bot.get_chat(chat_id=config.free_channel_id)
+            # Use the channel title if available, otherwise use the ID
+            channel_name = chat.title if chat.title else f"Free-{config.free_channel_id}"
+            free_menu_text = f"💬 **{channel_name}**"
+        except Exception:
+            # If there's an error getting the channel info, just show the configured status
+            free_menu_text = f"💬 **Free Configurado**"
+
     # Define main menu options according to specification
     main_options = [
-        ("💎 **Gestión VIP**", "admin_vip"),
-        ("💬 **Gestión Free**", "admin_free"),
+        (vip_menu_text, "admin_vip"),
+        (free_menu_text, "admin_free"),
         ("📊 **Centro de Reportes**", "admin_stats"),
         ("⚙️ **Diagnóstico y Config**", "admin_config"),
     ]
@@ -260,6 +291,22 @@ async def admin_main_menu(callback_query: CallbackQuery):
 async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     """Edit message to show VIP menu using MenuFactory."""
     tiers = await ConfigService.get_all_tiers(session)
+
+    # Get the bot configuration to get channel info
+    config = await ConfigService.get_bot_config(session)
+
+    # Set the title based on whether channel is configured
+    title = "DASHBOARD VIP"
+    if config.vip_channel_id:
+        try:
+            # Get channel info from Telegram using the bot
+            chat = await callback_query.bot.get_chat(chat_id=config.vip_channel_id)
+            # Use the channel title if available, otherwise use the ID
+            channel_name = chat.title if chat.title else f"VIP Channel"
+            title = f"DASHBOARD {channel_name}"
+        except Exception:
+            # If there's an error getting the channel info, just show the configured status
+            title = f"DASHBOARD VIP (Configurado)"
 
     # Build VIP menu options according to specification with sections
     options = [
@@ -287,7 +334,7 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         description = "❌ No hay tarifas de suscripción activas. Por favor, configure una tarifa primero."
 
     menu_data = MenuFactory.create_menu(
-        title="DASHBOARD VIP",
+        title=title,
         options=options,
         description=description,
         back_callback="admin_main_menu",
@@ -301,8 +348,24 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     )
 
 @admin_router.callback_query(F.data == "admin_free")
-async def admin_free(callback_query: CallbackQuery):
+async def admin_free(callback_query: CallbackQuery, session: AsyncSession):
     """Edit message to show Free menu using MenuFactory."""
+    # Get the bot configuration to get channel info
+    config = await ConfigService.get_bot_config(session)
+
+    # Set the title based on whether channel is configured
+    title = "DASHBOARD FREE"
+    if config.free_channel_id:
+        try:
+            # Get channel info from Telegram using the bot
+            chat = await callback_query.bot.get_chat(chat_id=config.free_channel_id)
+            # Use the channel title if available, otherwise use the ID
+            channel_name = chat.title if chat.title else f"Free Channel"
+            title = f"DASHBOARD {channel_name}"
+        except Exception:
+            # If there's an error getting the channel info, just show the configured status
+            title = f"DASHBOARD FREE (Configurado)"
+
     # Definir opciones del menú FREE según especificación con secciones
     free_options = [
         # -- SALA DE ESPERA --
@@ -320,7 +383,7 @@ async def admin_free(callback_query: CallbackQuery):
     ]
 
     menu_data = MenuFactory.create_menu(
-        title="DASHBOARD FREE",
+        title=title,
         options=free_options,
         back_callback="admin_main_menu",
         has_main=True
