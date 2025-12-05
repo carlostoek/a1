@@ -1,5 +1,5 @@
 import asyncio
-import logging
+from bot.utils.sexy_logger import get_logger
 from enum import Enum
 from typing import Callable, Dict, List, Any, Awaitable
 
@@ -13,12 +13,12 @@ class EventBus:
     def __init__(self):
         # Diccionario: Clave=NombreEvento, Valor=Lista de funciones que escuchan
         self._subscribers: Dict[str, List[EventHandler]] = {}
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
     def subscribe(self, event_name: str, handler: EventHandler):
         """Registra una función para escuchar un evento específico."""
         self._subscribers.setdefault(event_name, []).append(handler)
-        self.logger.info(f"Listener registrado para evento: {event_name}")
+        self.logger.event(f"Listener registrado para evento: {event_name}")
 
     async def emit(self, event_name: str, data: Dict[str, Any]):
         """
@@ -38,7 +38,7 @@ class EventBus:
         try:
             await handler(event_name, data)
         except Exception as e:
-            self.logger.error(f"Error en EventBus manejando '{event_name}': {e}", exc_info=True)
+            self.logger.event(f"Error en EventBus manejando '{event_name}': {e}", exc_info=True)
 
 # Lista de constantes de eventos conocidos (Para evitar magic strings)
 class Events(str, Enum):
