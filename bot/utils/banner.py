@@ -51,22 +51,38 @@ def print_system_info(bot_username: str = None, admin_count: int = 0):
         bot_username: Nombre de usuario del bot
         admin_count: Número de administradores configurados
     """
-    info = f"""
-{Colors.BRIGHT_CYAN}    ╭─────────────────────────────────────────────────────────────────╮{Colors.RESET}
-{Colors.BRIGHT_CYAN}    │{Colors.RESET} {Colors.BRIGHT_WHITE}📊 INFORMACIÓN DEL SISTEMA{Colors.RESET}                                      {Colors.BRIGHT_CYAN}│{Colors.RESET}
-{Colors.BRIGHT_CYAN}    ├─────────────────────────────────────────────────────────────────┤{Colors.RESET}
-"""
+    import re
 
+    def get_visual_length(s: str) -> int:
+        """Calcula la longitud visible de una cadena eliminando los códigos de escape ANSI."""
+        return len(re.sub(r'\x1B\[[0-?]*[ -/]*[@-~]', '', s))
+
+    width = 65
+
+    info_parts = [
+        f"{Colors.BRIGHT_CYAN} ╭{'─' * width}╮{Colors.RESET}",
+        f"{Colors.BRIGHT_CYAN} │{Colors.RESET} {Colors.BRIGHT_WHITE}📊 INFORMACIÓN DEL SISTEMA{Colors.RESET}{' ' * (width - 27)}{Colors.BRIGHT_CYAN}│{Colors.RESET}",
+        f"{Colors.BRIGHT_CYAN} ├{'─' * width}┤{Colors.RESET}"
+    ]
+
+    content_lines = []
     if bot_username:
-        info += f"{Colors.BRIGHT_CYAN}    │{Colors.RESET}   🤖 Bot: {Colors.BRIGHT_GREEN}@{bot_username}{Colors.RESET}                                         {Colors.BRIGHT_CYAN}│{Colors.RESET}\n"
+        content_lines.append(f" 🤖 Bot: {Colors.BRIGHT_GREEN}@{bot_username}{Colors.RESET}")
 
-    info += f"""{Colors.BRIGHT_CYAN}    │{Colors.RESET}   👥 Administradores: {Colors.BRIGHT_YELLOW}{admin_count}{Colors.RESET}                                    {Colors.BRIGHT_CYAN}│{Colors.RESET}
-{Colors.BRIGHT_CYAN}    │{Colors.RESET}   🗄️  Base de datos: {Colors.BRIGHT_GREEN}SQLite{Colors.RESET}                                    {Colors.BRIGHT_CYAN}│{Colors.RESET}
-{Colors.BRIGHT_CYAN}    │{Colors.RESET}   🔧 Framework: {Colors.BRIGHT_MAGENTA}Aiogram 3.x{Colors.RESET}                                    {Colors.BRIGHT_CYAN}│{Colors.RESET}
-{Colors.BRIGHT_CYAN}    │{Colors.RESET}   ✨ Sexy Logger: {Colors.BRIGHT_GREEN}Activado{Colors.RESET}                                     {Colors.BRIGHT_CYAN}│{Colors.RESET}
-{Colors.BRIGHT_CYAN}    ╰─────────────────────────────────────────────────────────────────╯{Colors.RESET}
-"""
-    print(info)
+    content_lines.extend([
+        f" 👥 Administradores: {Colors.BRIGHT_YELLOW}{admin_count}{Colors.RESET}",
+        f" 🗄️ Base de datos: {Colors.BRIGHT_GREEN}SQLite{Colors.RESET}",
+        f" 🔧 Framework: {Colors.BRIGHT_MAGENTA}Aiogram 3.x{Colors.RESET}",
+        f" ✨ Sexy Logger: {Colors.BRIGHT_GREEN}Activado{Colors.RESET}"
+    ])
+
+    for line in content_lines:
+        padding = ' ' * (width - get_visual_length(line))
+        info_parts.append(f"{Colors.BRIGHT_CYAN} │{Colors.RESET}{line}{padding}{Colors.BRIGHT_CYAN}│{Colors.RESET}")
+
+    info_parts.append(f"{Colors.BRIGHT_CYAN} ╰{'─' * width}╯{Colors.RESET}")
+
+    print('\n'.join(info_parts))
 
 
 def print_features():

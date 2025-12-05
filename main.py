@@ -8,6 +8,7 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramAPIError
 from bot.config import Settings
 from bot.database.base import engine
 from bot.handlers.admin import admin_router
@@ -51,7 +52,7 @@ async def main():
     try:
         bot_info = await bot.get_me()
         bot_username = bot_info.username
-    except Exception as e:
+    except TelegramAPIError as e:
         logger.error(f"No se pudo obtener información del bot: {e}")
         bot_username = "Unknown"
 
@@ -113,10 +114,6 @@ async def main():
         await dp.start_polling(bot)
     except KeyboardInterrupt:
         logger.warning("Interrupción por teclado detectada. Deteniendo bot...")
-    finally:
-        # Ensure cleanup happens
-        await dp.storage.close()
-        await bot.session.close()
 
 
 if __name__ == "__main__":
