@@ -57,7 +57,7 @@ class NotificationService:
             await self.bot.send_message(
                 chat_id=user_id,
                 text=message_text,
-                parse_mode="Markdown",
+                parse_mode="MarkdownV2",  # Updated to support **bold** syntax in templates
                 reply_markup=reply_markup
             )
             return True

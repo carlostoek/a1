@@ -15,6 +15,8 @@ from bot.services.exceptions import ServiceError
 from bot.services.config_service import ConfigService
 from bot.utils.ui import MenuFactory
 
+logger = get_logger(__name__)
+
 
 # Type definitions for channel service return values
 class BroadcastResult(TypedDict):
@@ -163,7 +165,6 @@ class ChannelManagementService:
             except TelegramBadRequest:
                 return {"success": False, "error": "El bot no es administrador, el canal no existe o el ID es incorrecto."}
             except Exception as e:
-                logger = get_logger(__name__)
                 logger.network(f"Error inesperado al verificar el canal {channel_id}: {e}")
                 return {"success": False, "error": f"Error inesperado: {e}"}
 
@@ -280,7 +281,6 @@ class ChannelManagementService:
                     else:
                         errors.append(f"Request {request.id}: {result['error']}")
                 except Exception as e:
-                    logger = get_logger(__name__)
                     logger.database(f"Error al procesar la solicitud {request.id}")
                     errors.append(f"Request {request.id}: {str(e)}")
 
@@ -358,7 +358,6 @@ class ChannelManagementService:
             except Exception as e:
                 # If sending invite fails, log the error and return failure
                 # to avoid marking the request as approved incorrectly
-                logger = get_logger(__name__)
                 logger.network(f"No se pudo enviar el enlace de invitación al usuario {request.user_id} para la solicitud {request.id}")
                 return {
                     "success": False,
@@ -434,7 +433,6 @@ class ChannelManagementService:
         except TelegramBadRequest as e:
             return {"success": False, "error": f"Telegram error: {str(e)}"}
         except Exception as e:
-            logger = get_logger(__name__)
             logger.network(f"Error broadcasting post to {target_channel_type} channel")
             return {"success": False, "error": f"Error inesperado al publicar: {str(e)}"}
 

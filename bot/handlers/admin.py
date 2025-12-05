@@ -196,7 +196,7 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
 
 
 @admin_router.message(Command("help"))
-async def cmd_help(message: Message, session: AsyncSession):
+async def cmd_help(message: Message):
     """
     Show a list of available commands for administrators.
     """

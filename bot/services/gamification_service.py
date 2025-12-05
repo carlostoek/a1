@@ -18,6 +18,7 @@ class GamificationService:
     """
     # Constants
     POINTS_PER_REACTION = 10
+    DAILY_REWARD_POINTS = 50  # Fixed: Make daily reward points a class constant
 
     def __init__(self, session_maker: async_sessionmaker, event_bus: 'EventBus', notification_service: 'NotificationService', subscription_service: 'SubscriptionService', bot: 'Bot'):
         self.session_maker = session_maker
@@ -31,6 +32,36 @@ class GamificationService:
         """Registrar el método _on_reaction_added al evento Events.REACTION_ADDED."""
         self.event_bus.subscribe(Events.REACTION_ADDED, self._on_reaction_added)
         self.logger.event("GamificationService listeners configured")
+
+    async def _get_or_create_profile(self, user_id: int, session):
+        """
+        Helper method to get or create a gamification profile for a user.
+        This avoids code duplication between methods.
+        """
+        # Buscar el perfil de gamificación del usuario
+        result = await session.execute(
+            select(GamificationProfile).where(GamificationProfile.user_id == user_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            # Crear nuevo perfil con 0 puntos y rango de 0 puntos
+            # Buscar el rango con min_points = 0 (Bronce)
+            rank_result = await session.execute(
+                select(Rank).where(Rank.min_points == 0)
+            )
+            starting_rank = rank_result.scalar_one_or_none()
+
+            profile = GamificationProfile(
+                user_id=user_id,
+                points=0,  # Start with 0 points
+                current_rank_id=starting_rank.id if starting_rank else None
+            )
+            session.add(profile)
+            await session.commit()
+            await session.refresh(profile)  # Refresh to get the ID if needed
+
+        return profile
 
     async def _on_reaction_added(self, event_name: str, data: Dict[str, Any]):
         """
@@ -58,29 +89,12 @@ class GamificationService:
         Lógica principal para añadir puntos a un usuario y verificar cambios de rango.
         """
         try:
-            # Buscar el perfil de gamificación del usuario
-            result = await session.execute(
-                select(GamificationProfile).where(GamificationProfile.user_id == user_id)
-            )
-            profile = result.scalar_one_or_none()
+            # Get or create the profile - using helper method to avoid code duplication
+            profile = await self._get_or_create_profile(user_id, session)
 
-            if profile:
-                # Actualizar puntos existentes
-                profile.points += amount
-            else:
-                # Crear nuevo perfil con 0 puntos y rango de 0 puntos
-                # Buscar el rango con min_points = 0 (Bronce)
-                rank_result = await session.execute(
-                    select(Rank).where(Rank.min_points == 0)
-                )
-                starting_rank = rank_result.scalar_one_or_none()
-
-                profile = GamificationProfile(
-                    user_id=user_id,
-                    points=amount,
-                    current_rank_id=starting_rank.id if starting_rank else None
-                )
-                session.add(profile)
+            # Update points - if it's the first time, add the amount, otherwise add to existing points
+            initial_points = profile.points
+            profile.points += amount
 
             # Actualizar última interacción
             profile.last_interaction_at = func.now()
@@ -560,7 +574,7 @@ class GamificationService:
 
             # Check if user can claim daily reward
             now = datetime.now(timezone.utc)
-            daily_points = 50  # Fixed daily reward points
+            daily_points = self.DAILY_REWARD_POINTS  # Using class constant instead of hardcoded value
 
             if profile.last_daily_claim is not None:
                 # Handle potential mismatch between offset-aware and offset-naive datetimes
@@ -574,11 +588,10 @@ class GamificationService:
 
                 # Check if it's been less than 24 hours
                 if time_since_last_claim.total_seconds() < 24 * 3600:  # 24 hours in seconds
-                    # Calculate remaining time
+                    # Calculate remaining time (simplified using divmod)
                     remaining_seconds = int((24 * 3600) - time_since_last_claim.total_seconds())
-                    hours = remaining_seconds // 3600
-                    minutes = (remaining_seconds % 3600) // 60
-                    seconds = remaining_seconds % 60
+                    hours, remainder = divmod(remaining_seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
 
                     remaining_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                     return {
@@ -589,12 +602,8 @@ class GamificationService:
             # Update points and last claim time
             await self.add_points(user_id, daily_points, session)
 
-            # Refresh profile after adding points
-            result = await session.execute(
-                select(GamificationProfile).where(GamificationProfile.user_id == user_id)
-            )
-            profile = result.scalar_one_or_none()
-
+            # Use session.refresh instead of querying database again
+            await session.refresh(profile)
             profile.last_daily_claim = now
             await session.commit()
 
