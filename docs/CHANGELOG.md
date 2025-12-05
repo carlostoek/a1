@@ -87,6 +87,12 @@
 - Integración del sistema de entrega de recompensas con `_check_rank_up` para activación automática
 - Manejo específico de errores en envío de recompensas sin afectar el flujo principal de gamificación
 - Actualización de documentación para reflejar el nuevo sistema de entrega de recompensas
+- Nuevo campo last_daily_claim en GamificationProfile para rastrear recompensas diarias
+- Nuevas plantillas de notificación "daily_success" y "daily_cooldown" para el sistema de recompensas diarias
+- Método claim_daily_reward en GamificationService con lógica de cooldown de 24 horas
+- Nuevo comando /daily en el handler de usuarios para permitir a los usuarios reclamar su recompensa diaria
+- Recompensa fija de 50 puntos por check-in diario exitoso
+- Validación y manejo de errores apropiado en el servicio de gamificación para el sistema diario
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

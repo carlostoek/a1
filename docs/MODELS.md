@@ -164,6 +164,23 @@ Modelo actualizado para incluir campos de recompensas en el sistema de gamificac
 **Índices**:
 - Individual: `min_points` (idx_rank_points)
 
+## Modelo GamificationProfile
+
+**Tabla**: `gamification_profiles`
+
+Modelo actualizado para incluir el sistema de gamificación con recompensas diarias.
+
+| Campo | Tipo | Descripción | Valor por defecto |
+|-------|------|-------------|------------------|
+| user_id | BigInteger (PK) | ID de usuario en Telegram (clave primaria) | - |
+| points | Integer | Puntos acumulados por el usuario | 0 |
+| current_rank_id | Integer FK, Nullable | ID del rango actual del usuario | None |
+| last_interaction_at | DateTime | Fecha de última interacción del usuario | Fecha actual UTC |
+| last_daily_claim | DateTime, Nullable | Fecha de la última reclamación de recompensa diaria | None |
+
+**Índices**:
+- Individual: `user_id` (clave primaria)
+
 ## Relaciones
 
 ### UserSubscription ↔ InvitationToken
@@ -181,6 +198,10 @@ Modelo actualizado para incluir campos de recompensas en el sistema de gamificac
 ### RewardContentPack ↔ RewardContentFile
 - Relación de uno a muchos (un pack de contenido puede contener múltiples archivos)
 - `RewardContentFile.pack_id` → `RewardContentPack.id`
+
+### GamificationProfile ↔ Rank
+- Relación de uno a muchos (muchos perfiles pueden estar asociados a un rango)
+- `GamificationProfile.current_rank_id` → `Rank.id`
 
 ## Validaciones y Restricciones
 

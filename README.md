@@ -69,6 +69,14 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - **Nuevas plantillas de notificación**: "vip_reward" y "pack_reward" para notificar a usuarios sobre recompensas entregadas
   - **Clasificación de Medios**: Sistema inteligente que clasifica archivos multimedia para envío apropiado como álbum o archivos individuales
   - **Manejo de Errores**: Implementación de manejo específico para errores en envío de recompensas sin afectar el flujo principal de gamificación
+- **Sistema de Recompensa Diaria**: Nuevo sistema de check-in diario que permite a los usuarios reclamar puntos gratis cada 24 horas
+  - **Campo last_daily_claim**: Nuevo campo en GamificationProfile para rastrear la última reclamación diaria
+  - **Template daily_success**: Notificación "📅 **¡Check-in Diario Completado!**\nHas ganado +{points} puntos por volver hoy.\n✅ Racha actual: {streak} días (Futuro)\n🏆 Total Puntos: {total_points}"
+  - **Template daily_cooldown**: Notificación "⏳ **¡Vuelve más tarde!**\nYa reclamaste tu recompensa de hoy.\nPodrás reclamar de nuevo en: **{remaining_time}**."
+  - **Método claim_daily_reward**: Implementación con lógica de cooldown de 24 horas y validación adecuada
+  - **Recompensa fija**: 50 puntos por check-in diario
+  - **Manejo de errores**: Validación y manejo de errores apropiado en el servicio de gamificación
+  - **Handler /daily**: Nuevo comando para que los usuarios reclamen su recompensa diaria
 
 ## Instalación
 
