@@ -112,11 +112,19 @@ async def cmd_daily_checkin(message: Message, session, services):
             }
         )
     else:
-        # Cooldown: send notification with remaining time
-        await services.notification.send_notification(
-            user_id,
-            "daily_cooldown",
-            context_data={
-                "remaining_time": result["remaining"]
-            }
-        )
+        # Cooldown or error: check if it's a cooldown issue (has 'remaining' key)
+        if "remaining" in result:
+            await services.notification.send_notification(
+                user_id,
+                "daily_cooldown",
+                context_data={
+                    "remaining_time": result["remaining"]
+                }
+            )
+        else:
+            # There was an error but no remaining time (likely a database or other error)
+            # Send a generic error message or just log it
+            error_message = result.get("error", "An error occurred while processing your request.")
+            await message.reply(f"⚠️ Error al procesar tu solicitud: {error_message}")
+            # Optionally log this for debugging
+            # logger.error(f"Error in daily reward for user {user_id}: {error_message}")

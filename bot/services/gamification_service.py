@@ -563,8 +563,14 @@ class GamificationService:
             daily_points = 50  # Fixed daily reward points
 
             if profile.last_daily_claim is not None:
+                # Handle potential mismatch between offset-aware and offset-naive datetimes
+                last_claim = profile.last_daily_claim
+                if last_claim.tzinfo is None:
+                    # Convert to offset-aware datetime in UTC
+                    last_claim = last_claim.replace(tzinfo=timezone.utc)
+
                 # Calculate time elapsed since last claim
-                time_since_last_claim = now - profile.last_daily_claim
+                time_since_last_claim = now - last_claim
 
                 # Check if it's been less than 24 hours
                 if time_since_last_claim.total_seconds() < 24 * 3600:  # 24 hours in seconds
