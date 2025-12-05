@@ -135,10 +135,7 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
         # Check if it's a referral link
         if args.startswith("ref_"):
             referral_payload = args
-        # Check if it's a token
-        elif args.startswith("token_"):
-            token_str = args
-        # Otherwise, treat as a regular token
+        # Otherwise, treat as a token (whether it starts with "token_" or not)
         else:
             token_str = args
 

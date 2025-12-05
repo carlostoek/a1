@@ -135,4 +135,5 @@ dmypy.json
 
 # Termux specific
 *.pyc
-__pycache__/bot.db
+__pycache__/
+bot.db

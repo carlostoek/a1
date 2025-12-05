@@ -19,6 +19,8 @@ class GamificationService:
     # Constants
     POINTS_PER_REACTION = 10
     DAILY_REWARD_POINTS = 50  # Fixed: Make daily reward points a class constant
+    REFERRER_REWARD_POINTS = 100  # Fixed: Make referrer reward points a class constant
+    REFERRED_REWARD_POINTS = 50   # Fixed: Make referred user reward points a class constant
 
     def __init__(self, session_maker: async_sessionmaker, event_bus: 'EventBus', notification_service: 'NotificationService', subscription_service: 'SubscriptionService', bot: 'Bot'):
         self.session_maker = session_maker
@@ -33,9 +35,9 @@ class GamificationService:
         self.event_bus.subscribe(Events.REACTION_ADDED, self._on_reaction_added)
         self.logger.event("GamificationService listeners configured")
 
-    async def _get_or_create_profile(self, user_id: int, session):
+    async def get_or_create_profile(self, user_id: int, session):
         """
-        Helper method to get or create a gamification profile for a user.
+        Public method to get or create a gamification profile for a user.
         This avoids code duplication between methods.
         """
         # Buscar el perfil de gamificación del usuario
@@ -90,7 +92,7 @@ class GamificationService:
         """
         try:
             # Get or create the profile - using helper method to avoid code duplication
-            profile = await self._get_or_create_profile(user_id, session)
+            profile = await self.get_or_create_profile(user_id, session)
 
             # Update points - if it's the first time, add the amount, otherwise add to existing points
             initial_points = profile.points
@@ -691,26 +693,15 @@ class GamificationService:
                 return False
 
             # Create a new gamification profile for the new user with the referral info
-            rank_result = await session.execute(
-                select(Rank).where(Rank.min_points == 0)
-            )
-            starting_rank = rank_result.scalar_one_or_none()
-
-            new_profile = GamificationProfile(
-                user_id=new_user_id,
-                points=0,
-                current_rank_id=starting_rank.id if starting_rank else None,
-                referred_by_id=referrer_id,  # Set who referred this user
-                referrals_count=0  # New users start with 0 referrals
-            )
-            session.add(new_profile)
+            new_profile = await self.get_or_create_profile(new_user_id, session)
+            new_profile.referred_by_id = referrer_id  # Set who referred this user
 
             # Update referrer's profile: add points and increment referral count
             referrer_profile.referrals_count += 1
-            await self.add_points(referrer_id, 100, session)  # Reward referrer with 100 points
+            await self.add_points(referrer_id, self.REFERRER_REWARD_POINTS, session)  # Reward referrer
 
-            # Add points to the new user (50 points as incentive)
-            await self.add_points(new_user_id, 50, session)  # Reward new user with 50 points
+            # Add points to the new user (as incentive)
+            await self.add_points(new_user_id, self.REFERRED_REWARD_POINTS, session)  # Reward new user
 
             # Commit the changes
             await session.commit()

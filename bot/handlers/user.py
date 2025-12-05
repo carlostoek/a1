@@ -150,29 +150,8 @@ async def cmd_invite_friends(message: Message, session, services: Services, bot:
     # Generate referral link
     referral_link = await services.gamification.get_referral_link(user_id, bot_username)
 
-    # Get referral stats for the user
-    result = await session.execute(
-        select(GamificationProfile).where(GamificationProfile.user_id == user_id)
-    )
-    profile = result.scalar_one_or_none()
-
-    if not profile:
-        # If the user doesn't have a profile, create one
-        from bot.database.models import Rank
-        rank_result = await session.execute(
-            select(Rank).where(Rank.min_points == 0)
-        )
-        starting_rank = rank_result.scalar_one_or_none()
-
-        profile = GamificationProfile(
-            user_id=user_id,
-            points=0,
-            current_rank_id=starting_rank.id if starting_rank else None,
-            referrals_count=0
-        )
-        session.add(profile)
-        await session.commit()
-        await session.refresh(profile)
+    # Get or create the profile using the service method to avoid code duplication
+    profile = await services.gamification.get_or_create_profile(user_id, session)
 
     # Get the number of successful referrals
     referrals_count = profile.referrals_count
