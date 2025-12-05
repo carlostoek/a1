@@ -1,4 +1,4 @@
-import logging
+from bot.utils.sexy_logger import get_logger
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.exceptions import TelegramAPIError
@@ -15,12 +15,15 @@ class NotificationService:
         "vip_reward": "👑 **¡Recompensa de Rango!**\nHas ganado **{days} días** de acceso VIP. Tu nueva fecha de expiración es: **{date}**",
         "pack_reward": "📦 **¡Pack Desbloqueado!**\nAquí tienes tu recompensa **'{pack_name}'** por alcanzar el rango **{rank_name}**.",
         "vip_expiration_warning": "🚨 **Aviso VIP:**\nTu suscripción VIP expira en {days} días. ¡No te quedes fuera!",
+        "daily_success": "📅 **¡Check-in Diario Completado!**\nHas ganado +{points} puntos por volver hoy.\n✅ Racha actual: {streak} días (Futuro)\n🏆 Total Puntos: {total_points}",
+        "daily_cooldown": "⏳ **¡Vuelve más tarde!**\nYa reclamaste tu recompensa de hoy.\nPodrás reclamar de nuevo en: **{remaining_time}**.",
         "generic_alert": "📢 **Alerta:** {message}"
     }
 
     def __init__(self, bot: Bot):
         # La instancia del bot debe ser inyectada al servicio.
         self.bot = bot
+        self.logger = get_logger(__name__)
 
     async def send_notification(
         self,
@@ -60,9 +63,9 @@ class NotificationService:
             return True
         except TelegramAPIError as e:
             # Manejo específico de errores de la API de Telegram
-            logging.error(f"Telegram API error al enviar notificación a {user_id}: {e}")
+            self.logger.error(f"Telegram API error al enviar notificación a {user_id}: {e}")
             return False
         except Exception as e:
             # Manejo de otros errores
-            logging.error(f"Error desconocido al enviar notificación a {user_id}: {e}")
+            self.logger.error(f"Error desconocido al enviar notificación a {user_id}: {e}")
             return False

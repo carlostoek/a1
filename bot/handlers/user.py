@@ -42,8 +42,6 @@ def looks_like_token(text: str) -> bool:
     return False
 
 
-
-
 @user_router.message(~F.text.startswith('/'))  # Only process non-command messages
 async def process_user_message(message: Message, session):
     """
@@ -89,3 +87,36 @@ async def process_user_message(message: Message, session):
                 f"El bot te enviará el enlace automáticamente cuando pase el tiempo. ¡No bloquees al bot!"
             )
             await message.reply(response_text)
+
+
+@user_router.message(Command("daily"))
+async def cmd_daily_checkin(message: Message, session, services):
+    """
+    Daily reward check-in command.
+    Allows users to claim a daily reward once every 24 hours.
+    """
+    user_id = message.from_user.id
+
+    # Use the services from the dependency injection container
+    result = await services.gamification.claim_daily_reward(user_id, session)
+
+    if result["success"]:
+        # Success: send notification with daily reward
+        await services.notification.send_notification(
+            user_id,
+            "daily_success",
+            context_data={
+                "points": result["points"],
+                "streak": 1,  # Placeholder for future streak tracking
+                "total_points": result["total"]
+            }
+        )
+    else:
+        # Cooldown: send notification with remaining time
+        await services.notification.send_notification(
+            user_id,
+            "daily_cooldown",
+            context_data={
+                "remaining_time": result["remaining"]
+            }
+        )
