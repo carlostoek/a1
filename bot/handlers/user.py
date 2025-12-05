@@ -3,7 +3,7 @@ User handlers for the Telegram Admin Bot.
 Handles user interactions like token redemption and free channel access.
 """
 import re
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message
 from datetime import datetime, timezone, timedelta
 from aiogram.filters import Command
