@@ -22,6 +22,9 @@ from bot.services.exceptions import (
     TokenNotFoundError,
     SubscriptionError
 )
+from bot.utils.sexy_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class SubscriptionService:
@@ -371,8 +374,6 @@ class SubscriptionService:
                 "error": f"Database error: {str(e)}"
             }
         except Exception as e:
-            from bot.utils.sexy_logger import get_logger
-            logger = get_logger(__name__)
             logger.security(f"Unexpected error revoking VIP access for user {user_id}")
             return {
                 "success": False,

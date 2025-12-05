@@ -127,5 +127,9 @@ class GamificationProfile(Base):
     last_interaction_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_daily_claim: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
+    # Referidos
+    referred_by_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)  # ID del usuario que lo invitó
+    referrals_count: Mapped[int] = mapped_column(Integer, default=0)  # Número de referidos exitosos
+
     # Relación (Opcional, si usas ORM loading, sino solo el ID está bien)
     # rank = relationship("Rank")

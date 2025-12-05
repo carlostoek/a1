@@ -18,6 +18,9 @@ class GamificationService:
     """
     # Constants
     POINTS_PER_REACTION = 10
+    DAILY_REWARD_POINTS = 50  # Fixed: Make daily reward points a class constant
+    REFERRER_REWARD_POINTS = 100  # Fixed: Make referrer reward points a class constant
+    REFERRED_REWARD_POINTS = 50   # Fixed: Make referred user reward points a class constant
 
     def __init__(self, session_maker: async_sessionmaker, event_bus: 'EventBus', notification_service: 'NotificationService', subscription_service: 'SubscriptionService', bot: 'Bot'):
         self.session_maker = session_maker
@@ -31,6 +34,36 @@ class GamificationService:
         """Registrar el método _on_reaction_added al evento Events.REACTION_ADDED."""
         self.event_bus.subscribe(Events.REACTION_ADDED, self._on_reaction_added)
         self.logger.event("GamificationService listeners configured")
+
+    async def get_or_create_profile(self, user_id: int, session):
+        """
+        Public method to get or create a gamification profile for a user.
+        This avoids code duplication between methods.
+        """
+        # Buscar el perfil de gamificación del usuario
+        result = await session.execute(
+            select(GamificationProfile).where(GamificationProfile.user_id == user_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if not profile:
+            # Crear nuevo perfil con 0 puntos y rango de 0 puntos
+            # Buscar el rango con min_points = 0 (Bronce)
+            rank_result = await session.execute(
+                select(Rank).where(Rank.min_points == 0)
+            )
+            starting_rank = rank_result.scalar_one_or_none()
+
+            profile = GamificationProfile(
+                user_id=user_id,
+                points=0,  # Start with 0 points
+                current_rank_id=starting_rank.id if starting_rank else None
+            )
+            session.add(profile)
+            await session.commit()
+            await session.refresh(profile)  # Refresh to get the ID if needed
+
+        return profile
 
     async def _on_reaction_added(self, event_name: str, data: Dict[str, Any]):
         """
@@ -58,29 +91,12 @@ class GamificationService:
         Lógica principal para añadir puntos a un usuario y verificar cambios de rango.
         """
         try:
-            # Buscar el perfil de gamificación del usuario
-            result = await session.execute(
-                select(GamificationProfile).where(GamificationProfile.user_id == user_id)
-            )
-            profile = result.scalar_one_or_none()
+            # Get or create the profile - using helper method to avoid code duplication
+            profile = await self.get_or_create_profile(user_id, session)
 
-            if profile:
-                # Actualizar puntos existentes
-                profile.points += amount
-            else:
-                # Crear nuevo perfil con 0 puntos y rango de 0 puntos
-                # Buscar el rango con min_points = 0 (Bronce)
-                rank_result = await session.execute(
-                    select(Rank).where(Rank.min_points == 0)
-                )
-                starting_rank = rank_result.scalar_one_or_none()
-
-                profile = GamificationProfile(
-                    user_id=user_id,
-                    points=amount,
-                    current_rank_id=starting_rank.id if starting_rank else None
-                )
-                session.add(profile)
+            # Update points - if it's the first time, add the amount, otherwise add to existing points
+            initial_points = profile.points
+            profile.points += amount
 
             # Actualizar última interacción
             profile.last_interaction_at = func.now()
@@ -560,19 +576,24 @@ class GamificationService:
 
             # Check if user can claim daily reward
             now = datetime.now(timezone.utc)
-            daily_points = 50  # Fixed daily reward points
+            daily_points = self.DAILY_REWARD_POINTS  # Using class constant instead of hardcoded value
 
             if profile.last_daily_claim is not None:
+                # Handle potential mismatch between offset-aware and offset-naive datetimes
+                last_claim = profile.last_daily_claim
+                if last_claim.tzinfo is None:
+                    # Convert to offset-aware datetime in UTC
+                    last_claim = last_claim.replace(tzinfo=timezone.utc)
+
                 # Calculate time elapsed since last claim
-                time_since_last_claim = now - profile.last_daily_claim
+                time_since_last_claim = now - last_claim
 
                 # Check if it's been less than 24 hours
                 if time_since_last_claim.total_seconds() < 24 * 3600:  # 24 hours in seconds
-                    # Calculate remaining time
+                    # Calculate remaining time (simplified using divmod)
                     remaining_seconds = int((24 * 3600) - time_since_last_claim.total_seconds())
-                    hours = remaining_seconds // 3600
-                    minutes = (remaining_seconds % 3600) // 60
-                    seconds = remaining_seconds % 60
+                    hours, remainder = divmod(remaining_seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
 
                     remaining_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                     return {
@@ -583,12 +604,8 @@ class GamificationService:
             # Update points and last claim time
             await self.add_points(user_id, daily_points, session)
 
-            # Refresh profile after adding points
-            result = await session.execute(
-                select(GamificationProfile).where(GamificationProfile.user_id == user_id)
-            )
-            profile = result.scalar_one_or_none()
-
+            # Use session.refresh instead of querying database again
+            await session.refresh(profile)
             profile.last_daily_claim = now
             await session.commit()
 
@@ -612,3 +629,118 @@ class GamificationService:
                 'success': False,
                 'error': str(e)
             }
+
+    async def get_referral_link(self, user_id: int, bot_username: str) -> str:
+        """
+        Generate a referral link for the user.
+
+        Args:
+            user_id: ID of the user requesting the referral link
+            bot_username: Username of the bot (without @)
+
+        Returns:
+            The referral link as a string
+        """
+        return f"https://t.me/{bot_username}?start=ref_{user_id}"
+
+    async def process_referral(self, new_user_id: int, ref_payload: str, session) -> bool:
+        """
+        Process a referral when a new user joins using a referral link.
+
+        Args:
+            new_user_id: ID of the new user
+            ref_payload: The referral payload (e.g., "ref_12345")
+            session: Database session
+
+        Returns:
+            True if referral was processed successfully, False otherwise
+        """
+        try:
+            # Extract the referrer ID from the payload
+            if not ref_payload.startswith("ref_"):
+                self.logger.event(f"Invalid referral payload format: {ref_payload}")
+                return False
+
+            try:
+                referrer_id = int(ref_payload[4:])  # Extract the number after "ref_"
+            except ValueError:
+                self.logger.event(f"Invalid referral payload format (non-numeric ID): {ref_payload}")
+                return False
+
+            # Check if the new user already has a gamification profile (must be truly new)
+            result = await session.execute(
+                select(GamificationProfile).where(GamificationProfile.user_id == new_user_id)
+            )
+            existing_profile = result.scalar_one_or_none()
+
+            if existing_profile:
+                self.logger.event(f"User {new_user_id} already has a gamification profile, referral ignored")
+                return False
+
+            # Check that referrer and referee are not the same person (anti-loop)
+            if new_user_id == referrer_id:
+                self.logger.event(f"User {new_user_id} tried to refer themselves, preventing referral loop")
+                return False
+
+            # Check if the referrer exists in the database
+            result = await session.execute(
+                select(GamificationProfile).where(GamificationProfile.user_id == referrer_id)
+            )
+            referrer_profile = result.scalar_one_or_none()
+
+            if not referrer_profile:
+                self.logger.event(f"Referrer {referrer_id} does not exist in database")
+                return False
+
+            # Create a new gamification profile for the new user with the referral info
+            new_profile = await self.get_or_create_profile(new_user_id, session)
+            new_profile.referred_by_id = referrer_id  # Set who referred this user
+
+            # Update referrer's profile: add points and increment referral count
+            referrer_profile.referrals_count += 1
+            await self.add_points(referrer_id, self.REFERRER_REWARD_POINTS, session)  # Reward referrer
+
+            # Add points to the new user (as incentive)
+            await self.add_points(new_user_id, self.REFERRED_REWARD_POINTS, session)  # Reward new user
+
+            # Commit the changes
+            await session.commit()
+
+            # Send notifications
+            try:
+                # Notify referrer about the new referral
+                await self.notification_service.send_notification(
+                    referrer_id,
+                    "referral_success",
+                    context_data={
+                        "points": 100
+                    }
+                )
+                self.logger.success(f"Referral notification sent to referrer {referrer_id}")
+            except Exception as e:
+                self.logger.error(f"Error sending referral notification to referrer {referrer_id}: {e}")
+
+            try:
+                # Notify the new user about their bonus
+                await self.notification_service.send_notification(
+                    new_user_id,
+                    "referral_bonus",
+                    context_data={
+                        "points": 50
+                    }
+                )
+                self.logger.success(f"Referral bonus notification sent to new user {new_user_id}")
+            except Exception as e:
+                self.logger.error(f"Error sending referral bonus notification to user {new_user_id}: {e}")
+
+            self.logger.success(f"Successfully processed referral: {referrer_id} -> {new_user_id}")
+            return True
+
+        except SQLAlchemyError as e:
+            self.logger.database(f"Database error processing referral for user {new_user_id}: {e}", exc_info=True)
+            await session.rollback()
+            return False
+        except Exception as e:
+            self.logger.error(f"Unexpected error processing referral for user {new_user_id}: {e}", exc_info=True)
+            await session.rollback()
+            return False

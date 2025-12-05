@@ -135,6 +135,34 @@ El servicio de gamificación gestiona el sistema de puntos y rangos para aumenta
   - **Retorna**: Instancia Rank o None si no se encuentra
   - Utilizado para obtener detalles específicos de un rango para edición
 
+- **get_referral_link(user_id, bot_username)**
+  - Genera un enlace de referido único para un usuario
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario que solicita el enlace de referido
+    - `bot_username`: Nombre de usuario del bot (sin el símbolo @)
+  - **Retorna**: Enlace de referido en formato `https://t.me/{bot_username}?start=ref_{user_id}`
+  - Utilizado para crear enlaces únicos que permiten a los usuarios invitar a amigos
+
+- **process_referral(new_user_id, ref_payload, session)**
+  - Procesa una referida cuando un nuevo usuario se une usando un enlace de referido
+  - Parámetros:
+    - `new_user_id`: ID de Telegram del nuevo usuario que se une
+    - `ref_payload`: Payload de referido (ej: "ref_12345")
+    - `session`: Sesión de base de datos activa
+  - **Retorna**: `True` si la referida se procesó exitosamente, `False` en caso contrario
+  - **Funcionalidades**:
+    - Verifica que el payload tenga el formato correcto ("ref_...")
+    - Extrae el ID del referidor del payload
+    - Verifica que el nuevo usuario sea realmente nuevo (no tenga perfil de gamificación existente)
+    - Previene bucles de referidos (auto-referidos)
+    - Verifica que el referidor exista en la base de datos
+    - Crea un nuevo perfil de gamificación para el nuevo usuario con el campo `referred_by_id` establecido
+    - Incrementa el contador de referidos del referidor y le otorga 100 puntos
+    - Otorga 50 puntos al nuevo usuario como incentivo
+    - Envía notificaciones al referidor y al nuevo usuario sobre las recompensas
+    - Implementa manejo de errores con rollback de base de datos en caso de fallo
+  - **Protección contra fraude**: Incluye validaciones para prevenir auto-referidos y asegurar que solo usuarios nuevos puedan ser referidos
+
 ### NotificationService
 
 #### Propiedades de Acceso Rápido
@@ -176,6 +204,8 @@ El servicio de notificaciones gestiona el envío de mensajes a los usuarios basa
 - **rank_up**: **NUEVO** - Notificación cuando un usuario sube de rango, mostrando el rango anterior y el nuevo rango
 - **vip_reward**: **NUEVO** - Notificación cuando se otorgan días VIP como recompensa por subir de rango, incluyendo número de días y nueva fecha de expiración
 - **pack_reward**: **NUEVO** - Notificación cuando se otorga un pack de contenido como recompensa por subir de rango, incluyendo nombre del pack y rango alcanzado
+- **referral_success**: **NUEVO** - Notificación enviada al referidor cuando alguien se une a través de su enlace, incluyendo puntos ganados como recompensa
+- **referral_bonus**: **NUEVO** - Notificación enviada al nuevo usuario cuando se une a través de un enlace de referido, incluyendo puntos de bonificación recibidos
 - **vip_expiration_warning**: Aviso de expiración de suscripción VIP
 - **generic_alert**: Mensaje genérico de alerta
 

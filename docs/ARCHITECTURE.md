@@ -179,6 +179,42 @@ Implementado para fomentar la participación diaria de los usuarios:
   - Envía notificaciones personalizadas según el resultado de la operación
   - Maneja adecuadamente la creación de perfiles nuevos si el usuario no tiene uno existente
 
+## Sistema de Referidos
+
+Implementado para fomentar la adquisición de nuevos usuarios a través de referidos:
+
+- **referred_by_id**: Nuevo campo en el modelo GamificationProfile que almacena el ID del usuario que invitó al nuevo usuario
+- **referrals_count**: Nuevo campo en el modelo GamificationProfile que cuenta el número de referidos exitosos para cada usuario
+- **get_referral_link**: Método en GamificationService que genera un enlace de referido único para cada usuario
+  - Recibe el ID del usuario y el nombre de usuario del bot
+  - Retorna un enlace con el formato `https://t.me/{bot_username}?start=ref_{user_id}`
+- **process_referral**: Método en GamificationService que procesa las referencias cuando un nuevo usuario se une usando un enlace de referido
+  - Verifica que el payload tenga el formato correcto ("ref_...")
+  - Extrae el ID del referidor del payload
+  - Verifica que el nuevo usuario sea realmente nuevo (no tenga perfil de gamificación existente)
+  - Previene bucles de referidos (auto-referidos)
+  - Verifica que el referidor exista en la base de datos
+  - Crea un nuevo perfil de gamificación para el nuevo usuario con el campo `referred_by_id` establecido
+  - Incrementa el contador de referidos del referidor y le otorga 100 puntos
+  - Otorga 50 puntos al nuevo usuario como incentivo
+  - Envía notificaciones al referidor y al nuevo usuario sobre las recompensas
+  - Implementa manejo de errores con rollback de base de datos en caso de fallo
+- **Handler /invite**: Comando en el handler de usuarios que permite a los usuarios obtener su enlace de referido
+  - Genera el enlace de referido usando el método `get_referral_link`
+  - Muestra estadísticas de referidos (número de referidos exitosos)
+  - Envía notificación con información sobre las recompensas por referidos
+- **Integración con /start**: El handler de comandos `/start` ahora también maneja enlaces de referidos
+  - Extrae el payload de referido del argumento del comando
+  - Procesa la referida independientemente del redención de tokens VIP
+  - Permite que un usuario se una a través de un enlace de referido y canjee un token en la misma interacción
+- **Notificaciones de Referidos**: Plantillas específicas para notificar sobre referidos exitosos
+  - **referral_success**: Notificación enviada al referidor cuando alguien se une a través de su enlace
+  - **referral_bonus**: Notificación enviada al nuevo usuario cuando se une a través de un enlace de referido
+- **Protección contra fraude**: Implementación de validaciones para prevenir abusos del sistema de referidos
+  - Sistema anti-bucle que previene auto-referidos
+  - Verificación de que solo usuarios nuevos puedan ser referidos
+  - Validación de formato correcto del payload de referido
+
 ## Sistema de Gestión de Packs de Contenido
 
 Implementado para administrar contenido multimedia como recompensas en el sistema de gamificación:
@@ -299,6 +335,8 @@ Implementado para administrar recompensas asociadas a los rangos de gamificació
    - Rango actual del usuario
    - Fecha de última interacción
    - **PR23**: Corrección de la zona horaria en `last_interaction_at` usando `datetime.now(timezone.utc)`
+   - **referred_by_id**: ID del usuario que invitó a este usuario (campo referido)
+   - **referrals_count**: Número de referidos exitosos que este usuario ha conseguido
 
 ### Relaciones SQLAlchemy
 - **PR24**: Implementación de relaciones SQLAlchemy descomentadas en modelos de base de datos para mejor integridad referencial

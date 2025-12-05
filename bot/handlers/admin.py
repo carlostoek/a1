@@ -115,19 +115,38 @@ def get_channels_config_kb():
 
 # Command handlers
 @admin_router.message(Command("admin", "start"))
-async def cmd_admin(message: Message, command: CommandObject, session: AsyncSession):
+async def cmd_admin(message: Message, command: CommandObject, session: AsyncSession, services: Services):
     """
     Handle the /start and /admin commands.
     - If /start has a token, redeem it.
+    - If /start has a referral link (ref_...), process it.
     - If /start has no token, show a welcome message.
     - If /admin is used by an admin, show the admin menu.
     """
     user_id = message.from_user.id
-    token_str = command.args
+    args = command.args
+
+    # Split args to handle referral links
+    payload = None
+    token_str = None
+    referral_payload = None
+
+    if args:
+        # Check if it's a referral link
+        if args.startswith("ref_"):
+            referral_payload = args
+        # Otherwise, treat as a token (whether it starts with "token_" or not)
+        else:
+            token_str = args
 
     # User role check
     settings = Settings()
     is_admin = user_id in settings.admin_ids_list
+
+    # First, process referral if present
+    if referral_payload:
+        # Process referral - independently of token redemption success
+        await services.gamification.process_referral(user_id, referral_payload, session)
 
     if token_str:
         # Token redemption flow
@@ -174,7 +193,7 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
 
 
 @admin_router.message(Command("help"))
-async def cmd_help(message: Message, session: AsyncSession):
+async def cmd_help(message: Message):
     """
     Show a list of available commands for administrators.
     """

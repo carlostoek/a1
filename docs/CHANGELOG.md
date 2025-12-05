@@ -93,6 +93,15 @@
 - Nuevo comando /daily en el handler de usuarios para permitir a los usuarios reclamar su recompensa diaria
 - Recompensa fija de 50 puntos por check-in diario exitoso
 - Validación y manejo de errores apropiado en el servicio de gamificación para el sistema diario
+- **Sistema de Referidos**: Nuevo sistema de referidos que permite a los usuarios invitar a amigos y ganar puntos
+  - **Campo referred_by_id**: Nuevo campo en GamificationProfile que almacena el ID del usuario que lo invitó
+  - **Campo referrals_count**: Nuevo campo en GamificationProfile que cuenta el número de referidos exitosos
+  - **Método get_referral_link**: Genera un enlace de referido único para cada usuario
+  - **Método process_referral**: Procesa las referencias cuando un nuevo usuario se une usando un enlace de referido
+  - **Comando /invite**: Nuevo comando público que permite a los usuarios obtener su enlace de referido y ver estadísticas
+  - **Integración con /start**: El comando /start ahora también maneja enlaces de referidos en adición a tokens VIP
+  - **Mecánica de recompensas**: Referidor obtiene 100 puntos y referido obtiene 50 puntos al registrarse
+  - **Protección contra fraude**: Sistema anti-bucle que previene auto-referidos y validaciones para evitar abusos
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones
