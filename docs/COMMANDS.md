@@ -34,6 +34,25 @@
 /free
 ```
 
+### `/daily`
+
+**Descripción**: Reclama la recompensa diaria de puntos por check-in. Los usuarios pueden reclamar 50 puntos cada 24 horas.
+
+**Flujo**:
+1. Verifica si ha pasado al menos 24 horas desde la última reclamación
+2. Si puede reclamar: Otorga 50 puntos y actualiza la fecha de última reclamación
+3. Si aún está en cooldown: Muestra el tiempo restante hasta la próxima reclamación
+4. Envía notificación personalizada según el resultado
+
+**Ejemplo de uso**:
+```
+/daily
+```
+
+**Notificaciones**:
+- **Éxito**: "📅 **¡Check-in Diario Completado!**\nHas ganado +{points} puntos por volver hoy.\n✅ Racha actual: {streak} días (Futuro)\n🏆 Total Puntos: {total_points}"
+- **Cooldown**: "⏳ **¡Vuelve más tarde!**\nYa reclamaste tu recompensa de hoy.\nPodrás reclamar de nuevo en: **{remaining_time}**."
+
 ## Comandos de Administrador
 
 ### `/admin`

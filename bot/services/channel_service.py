@@ -1,7 +1,7 @@
 """
 Service for managing channel requests and statistics.
 """
-import logging
+from bot.utils.sexy_logger import get_logger
 from typing import List, Dict, Any, Union, TypedDict, NotRequired
 from aiogram import Bot
 from datetime import datetime, timezone, timedelta
@@ -163,7 +163,8 @@ class ChannelManagementService:
             except TelegramBadRequest:
                 return {"success": False, "error": "El bot no es administrador, el canal no existe o el ID es incorrecto."}
             except Exception as e:
-                logging.error(f"Error inesperado al verificar el canal {channel_id}: {e}")
+                logger = get_logger(__name__)
+                logger.network(f"Error inesperado al verificar el canal {channel_id}: {e}")
                 return {"success": False, "error": f"Error inesperado: {e}"}
 
             # Update the bot configuration with the new channel ID
@@ -279,7 +280,8 @@ class ChannelManagementService:
                     else:
                         errors.append(f"Request {request.id}: {result['error']}")
                 except Exception as e:
-                    logging.exception(f"Error al procesar la solicitud {request.id}")
+                    logger = get_logger(__name__)
+                    logger.database(f"Error al procesar la solicitud {request.id}")
                     errors.append(f"Request {request.id}: {str(e)}")
 
             summary_message = f"Processed {processed_count}/{len(pending_requests)} pending requests"
@@ -356,7 +358,8 @@ class ChannelManagementService:
             except Exception as e:
                 # If sending invite fails, log the error and return failure
                 # to avoid marking the request as approved incorrectly
-                logging.exception(f"No se pudo enviar el enlace de invitación al usuario {request.user_id} para la solicitud {request.id}")
+                logger = get_logger(__name__)
+                logger.network(f"No se pudo enviar el enlace de invitación al usuario {request.user_id} para la solicitud {request.id}")
                 return {
                     "success": False,
                     "error": f"No se pudo enviar el enlace de invitación: {str(e)}"
@@ -431,7 +434,8 @@ class ChannelManagementService:
         except TelegramBadRequest as e:
             return {"success": False, "error": f"Telegram error: {str(e)}"}
         except Exception as e:
-            logging.exception(f"Error broadcasting post to {target_channel_type} channel")
+            logger = get_logger(__name__)
+            logger.network(f"Error broadcasting post to {target_channel_type} channel")
             return {"success": False, "error": f"Error inesperado al publicar: {str(e)}"}
 
     @staticmethod

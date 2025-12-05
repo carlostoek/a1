@@ -2,7 +2,7 @@
 Content Management Service for System B.
 This service implements System A's content management features like protected messages and advanced posting.
 """
-import logging
+from bot.utils.sexy_logger import get_logger
 from typing import List, Dict, Any, Optional
 from aiogram import Bot
 from aiogram.types import (
@@ -20,7 +20,7 @@ from bot.services.advanced_channel_service import AdvancedChannelService
 from bot.services.exceptions import ServiceError
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ContentManagementService:
@@ -65,7 +65,7 @@ class ContentManagementService:
             
             return sent_message
         except Exception as e:
-            logger.error(f"Error sending protected content to channel {channel_id}: {e}")
+            logger.network(f"Error sending protected content to channel {channel_id}: {e}")
             return None
     
     @staticmethod
@@ -126,14 +126,14 @@ class ContentManagementService:
                     )
                     result["pinned"] = True
                 except TelegramBadRequest as e:
-                    logger.warning(f"Could not pin message {sent_message.message_id} in channel {channel_id}: {e}")
+                    logger.network(f"Could not pin message {sent_message.message_id} in channel {channel_id}: {e}")
                     result["pinned"] = False
                     result["pin_error"] = str(e)
             
             return result
             
         except Exception as e:
-            logger.error(f"Error creating channel post in channel {channel_id}: {e}")
+            logger.network(f"Error creating channel post in channel {channel_id}: {e}")
             return {
                 "success": False,
                 "error": str(e)
@@ -177,7 +177,7 @@ class ContentManagementService:
                     "reactions": reactions
                 }
         except Exception as e:
-            logger.error(f"Error updating channel reactions for {channel_id}: {e}")
+            logger.database(f"Error updating channel reactions for {channel_id}: {e}")
             return {
                 "success": False,
                 "error": str(e)
@@ -221,7 +221,7 @@ class ContentManagementService:
             
             return stats
         except Exception as e:
-            logger.error(f"Error getting channel content stats for {channel_id}: {e}")
+            logger.database(f"Error getting channel content stats for {channel_id}: {e}")
             return {
                 "success": False,
                 "error": str(e)
@@ -256,5 +256,5 @@ class ContentManagementService:
             )
             return success
         except Exception as e:
-            logger.error(f"Error tracking content interaction: {e}")
+            logger.database(f"Error tracking content interaction: {e}")
             return False

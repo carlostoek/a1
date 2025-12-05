@@ -371,8 +371,9 @@ class SubscriptionService:
                 "error": f"Database error: {str(e)}"
             }
         except Exception as e:
-            import logging
-            logging.exception(f"Unexpected error revoking VIP access for user {user_id}")
+            from bot.utils.sexy_logger import get_logger
+            logger = get_logger(__name__)
+            logger.security(f"Unexpected error revoking VIP access for user {user_id}")
             return {
                 "success": False,
                 "error": f"Error revoking VIP access: {str(e)}"

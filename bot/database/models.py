@@ -125,6 +125,7 @@ class GamificationProfile(Base):
 
     # Metadatos de actividad
     last_interaction_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_daily_claim: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     # Relación (Opcional, si usas ORM loading, sino solo el ID está bien)
     # rank = relationship("Rank")

@@ -3,7 +3,7 @@ Advanced Channel Management Service for System B.
 This service provides advanced features from System A like detailed statistics, 
 user onboarding, and advanced moderation tools.
 """
-import logging
+from bot.utils.sexy_logger import get_logger
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +22,7 @@ from bot.services.advanced_channel_service import AdvancedChannelService
 from bot.services.exceptions import ServiceError
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AdvancedAnalyticsService:
@@ -134,7 +134,7 @@ class AdvancedAnalyticsService:
             return detailed_stats
             
         except Exception as e:
-            logger.error(f"Error getting detailed channel statistics: {e}")
+            logger.database(f"Error getting detailed channel statistics: {e}")
             raise ServiceError(f"Error getting detailed statistics: {str(e)}")
     
     @staticmethod
@@ -205,7 +205,7 @@ class AdvancedAnalyticsService:
             return onboarding_stats
             
         except Exception as e:
-            logger.error(f"Error getting user onboarding statistics: {e}")
+            logger.database(f"Error getting user onboarding statistics: {e}")
             raise ServiceError(f"Error getting onboarding statistics: {str(e)}")
     
     @staticmethod
@@ -262,7 +262,7 @@ class AdvancedAnalyticsService:
             return analytics
             
         except Exception as e:
-            logger.error(f"Error getting reaction analytics: {e}")
+            logger.database(f"Error getting reaction analytics: {e}")
             raise ServiceError(f"Error getting reaction analytics: {str(e)}")
     
     @staticmethod
@@ -358,5 +358,5 @@ class AdvancedAnalyticsService:
             return report
             
         except Exception as e:
-            logger.error(f"Error getting channel performance report: {e}")
+            logger.database(f"Error getting channel performance report: {e}")
             raise ServiceError(f"Error getting performance report: {str(e)}")

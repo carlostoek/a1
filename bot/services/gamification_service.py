@@ -1,4 +1,4 @@
-import logging
+from bot.utils.sexy_logger import get_logger
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from aiogram import Bot
@@ -25,12 +25,12 @@ class GamificationService:
         self.notification_service = notification_service
         self.subscription_service = subscription_service
         self.bot = bot
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
     def setup_listeners(self):
         """Registrar el método _on_reaction_added al evento Events.REACTION_ADDED."""
         self.event_bus.subscribe(Events.REACTION_ADDED, self._on_reaction_added)
-        self.logger.info("GamificationService listeners configured")
+        self.logger.event("GamificationService listeners configured")
 
     async def _on_reaction_added(self, event_name: str, data: Dict[str, Any]):
         """
@@ -90,10 +90,10 @@ class GamificationService:
 
             # Guardar cambios
             await session.commit()
-            self.logger.info(f"Added {amount} points to user {user_id}. New total: {profile.points}")
+            self.logger.event(f"Added {amount} points to user {user_id}. New total: {profile.points}")
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error adding points to user {user_id}: {e}", exc_info=True)
+            self.logger.database(f"Database error adding points to user {user_id}: {e}", exc_info=True)
             await session.rollback()
         except Exception as e:
             self.logger.error(f"Unexpected error adding points to user {user_id}: {e}", exc_info=True)
@@ -125,9 +125,9 @@ class GamificationService:
                 # Entregar las recompensas configuradas para este nuevo rango
                 await self._deliver_rewards(profile.user_id, new_rank, session)
 
-                self.logger.info(f"User {profile.user_id} leveled up from rank {old_rank_id} to {new_rank.id}")
+                self.logger.success(f"User {profile.user_id} leveled up from rank {old_rank_id} to {new_rank.id}")
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error checking rank up for user {profile.user_id}: {e}", exc_info=True)
+            self.logger.database(f"Database error checking rank up for user {profile.user_id}: {e}", exc_info=True)
         except Exception as e:
             self.logger.error(f"Unexpected error checking rank up for user {profile.user_id}: {e}", exc_info=True)
 
@@ -163,7 +163,7 @@ class GamificationService:
                     }
                 )
 
-                self.logger.info(f"VIP reward of {rank.reward_vip_days} days delivered to user {user_id}")
+                self.logger.success(f"VIP reward of {rank.reward_vip_days} days delivered to user {user_id}")
             else:
                 self.logger.error(f"Failed to deliver VIP reward to user {user_id}: {result.get('error', 'Unknown error')}")
 
@@ -205,9 +205,9 @@ class GamificationService:
 
                     try:
                         await self.bot.send_media_group(chat_id=user_id, media=media_group)
-                        self.logger.info(f"Sent {len(media_group)} media items as album to user {user_id}")
+                        self.logger.success(f"Sent {len(media_group)} media items as album to user {user_id}")
                     except TelegramAPIError as e:
-                        self.logger.error(f"Telegram API error sending media group to user {user_id}: {e}")
+                        self.logger.api(f"Telegram API error sending media group to user {user_id}: {e}")
                     except Exception as e:
                         self.logger.error(f"Unexpected error sending media group to user {user_id}: {e}")
 
@@ -221,9 +221,9 @@ class GamificationService:
                         elif doc['media_type'] == 'video':  # In case any video wasn't sent in album
                             await self.bot.send_video(chat_id=user_id, video=doc['file_id'])
 
-                        self.logger.info(f"Sent individual {doc['media_type']} to user {user_id}")
+                        self.logger.success(f"Sent individual {doc['media_type']} to user {user_id}")
                     except TelegramAPIError as e:
-                        self.logger.error(f"Telegram API error sending individual {doc['media_type']} to user {user_id}: {e}")
+                        self.logger.api(f"Telegram API error sending individual {doc['media_type']} to user {user_id}: {e}")
                     except Exception as e:
                         self.logger.error(f"Unexpected error sending individual {doc['media_type']} to user {user_id}: {e}")
 
@@ -246,7 +246,7 @@ class GamificationService:
                     }
                 )
 
-                self.logger.info(f"Content pack '{pack_name}' delivered to user {user_id}")
+                self.logger.success(f"Content pack '{pack_name}' delivered to user {user_id}")
 
     async def _notify_rank_up(self, user_id: int, old_rank_id: int, new_rank: Rank, session):
         """
@@ -272,9 +272,9 @@ class GamificationService:
                 }
             )
 
-            self.logger.info(f"Rank up notification sent to user {user_id}")
+            self.logger.success(f"Rank up notification sent to user {user_id}")
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error notifying rank up for user {user_id}: {e}", exc_info=True)
+            self.logger.database(f"Database error notifying rank up for user {user_id}: {e}", exc_info=True)
         except Exception as e:
             self.logger.error(f"Unexpected error notifying rank up for user {user_id}: {e}", exc_info=True)
 
@@ -297,7 +297,7 @@ class GamificationService:
             existing_pack = result.scalar_one_or_none()
 
             if existing_pack:
-                self.logger.warning(f"Content pack with name '{name}' already exists")
+                self.logger.event(f"Content pack with name '{name}' already exists")
                 return None
 
             # Create new content pack
@@ -308,11 +308,11 @@ class GamificationService:
             # Refresh the pack to get the generated ID
             await session.refresh(pack)
 
-            self.logger.info(f"Created content pack: {name} (ID: {pack.id})")
+            self.logger.success(f"Created content pack: {name} (ID: {pack.id})")
             return pack
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error creating content pack '{name}': {e}", exc_info=True)
+            self.logger.database(f"Database error creating content pack '{name}': {e}", exc_info=True)
             await session.rollback()
             return None
         except Exception as e:
@@ -345,11 +345,11 @@ class GamificationService:
             session.add(content_file)
             await session.commit()
 
-            self.logger.info(f"Added file to pack {pack_id}: {media_type} (ID: {unique_id})")
+            self.logger.success(f"Added file to pack {pack_id}: {media_type} (ID: {unique_id})")
             return True
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error adding file to pack {pack_id}: {e}", exc_info=True)
+            self.logger.database(f"Database error adding file to pack {pack_id}: {e}", exc_info=True)
             await session.rollback()
             return False
         except Exception as e:
@@ -373,11 +373,11 @@ class GamificationService:
             )
             packs = result.scalars().all()
 
-            self.logger.info(f"Retrieved {len(packs)} content packs")
+            self.logger.database(f"Retrieved {len(packs)} content packs")
             return packs
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error retrieving content packs: {e}", exc_info=True)
+            self.logger.database(f"Database error retrieving content packs: {e}", exc_info=True)
             return []
         except Exception as e:
             self.logger.error(f"Unexpected error retrieving content packs: {e}", exc_info=True)
@@ -406,14 +406,14 @@ class GamificationService:
                 await session.delete(pack)
                 await session.commit()
 
-                self.logger.info(f"Deleted content pack: {pack_id}")
+                self.logger.success(f"Deleted content pack: {pack_id}")
                 return True
             else:
-                self.logger.warning(f"Attempted to delete non-existent content pack: {pack_id}")
+                self.logger.event(f"Attempted to delete non-existent content pack: {pack_id}")
                 return False
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error deleting content pack {pack_id}: {e}", exc_info=True)
+            self.logger.database(f"Database error deleting content pack {pack_id}: {e}", exc_info=True)
             await session.rollback()
             return False
         except Exception as e:
@@ -437,11 +437,11 @@ class GamificationService:
             )
             ranks = result.scalars().all()
 
-            self.logger.info(f"Retrieved {len(ranks)} ranks")
+            self.logger.database(f"Retrieved {len(ranks)} ranks")
             return ranks
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error retrieving ranks: {e}", exc_info=True)
+            self.logger.database(f"Database error retrieving ranks: {e}", exc_info=True)
             return []
         except Exception as e:
             self.logger.error(f"Unexpected error retrieving ranks: {e}", exc_info=True)
@@ -468,7 +468,7 @@ class GamificationService:
             rank = result.scalar_one_or_none()
 
             if not rank:
-                self.logger.warning(f"Attempted to update non-existent rank: {rank_id}")
+                self.logger.event(f"Attempted to update non-existent rank: {rank_id}")
                 return None
 
             # Update the fields if provided
@@ -481,11 +481,11 @@ class GamificationService:
             await session.commit()
             await session.refresh(rank)  # Refresh to get the updated values
 
-            self.logger.info(f"Updated rank {rank_id} rewards: VIP days={vip_days}, Pack ID={pack_id}")
+            self.logger.success(f"Updated rank {rank_id} rewards: VIP days={vip_days}, Pack ID={pack_id}")
             return rank
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error updating rank {rank_id} rewards: {e}", exc_info=True)
+            self.logger.database(f"Database error updating rank {rank_id} rewards: {e}", exc_info=True)
             await session.rollback()
             return None
         except Exception as e:
@@ -511,15 +511,104 @@ class GamificationService:
             rank = result.scalar_one_or_none()
 
             if rank:
-                self.logger.info(f"Retrieved rank {rank_id}: {rank.name}")
+                self.logger.database(f"Retrieved rank {rank_id}: {rank.name}")
             else:
-                self.logger.warning(f"Attempted to retrieve non-existent rank: {rank_id}")
+                self.logger.event(f"Attempted to retrieve non-existent rank: {rank_id}")
 
             return rank
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error retrieving rank {rank_id}: {e}", exc_info=True)
+            self.logger.database(f"Database error retrieving rank {rank_id}: {e}", exc_info=True)
             return None
         except Exception as e:
             self.logger.error(f"Unexpected error retrieving rank {rank_id}: {e}", exc_info=True)
             return None
+
+    async def claim_daily_reward(self, user_id: int, session) -> Dict[str, Any]:
+        """
+        Claim daily reward for the user, with 24-hour cooldown.
+
+        Args:
+            user_id: ID of the user claiming the reward
+            session: Async database session
+
+        Returns:
+            Dictionary with success status and relevant data
+        """
+        try:
+            # Get user profile (create if doesn't exist)
+            result = await session.execute(
+                select(GamificationProfile).where(GamificationProfile.user_id == user_id)
+            )
+            profile = result.scalar_one_or_none()
+
+            if not profile:
+                # Create new profile if it doesn't exist
+                rank_result = await session.execute(
+                    select(Rank).where(Rank.min_points == 0)
+                )
+                starting_rank = rank_result.scalar_one_or_none()
+
+                profile = GamificationProfile(
+                    user_id=user_id,
+                    points=0,
+                    current_rank_id=starting_rank.id if starting_rank else None
+                )
+                session.add(profile)
+                await session.commit()
+                await session.refresh(profile)
+
+            # Check if user can claim daily reward
+            now = datetime.now(timezone.utc)
+            daily_points = 50  # Fixed daily reward points
+
+            if profile.last_daily_claim is not None:
+                # Calculate time elapsed since last claim
+                time_since_last_claim = now - profile.last_daily_claim
+
+                # Check if it's been less than 24 hours
+                if time_since_last_claim.total_seconds() < 24 * 3600:  # 24 hours in seconds
+                    # Calculate remaining time
+                    remaining_seconds = int((24 * 3600) - time_since_last_claim.total_seconds())
+                    hours = remaining_seconds // 3600
+                    minutes = (remaining_seconds % 3600) // 60
+                    seconds = remaining_seconds % 60
+
+                    remaining_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    return {
+                        'success': False,
+                        'remaining': remaining_time
+                    }
+
+            # Update points and last claim time
+            await self.add_points(user_id, daily_points, session)
+
+            # Refresh profile after adding points
+            result = await session.execute(
+                select(GamificationProfile).where(GamificationProfile.user_id == user_id)
+            )
+            profile = result.scalar_one_or_none()
+
+            profile.last_daily_claim = now
+            await session.commit()
+
+            return {
+                'success': True,
+                'points': daily_points,
+                'total': profile.points
+            }
+
+        except SQLAlchemyError as e:
+            self.logger.database(f"Database error claiming daily reward for user {user_id}: {e}", exc_info=True)
+            await session.rollback()
+            return {
+                'success': False,
+                'error': str(e)
+            }
+        except Exception as e:
+            self.logger.error(f"Unexpected error claiming daily reward for user {user_id}: {e}", exc_info=True)
+            await session.rollback()
+            return {
+                'success': False,
+                'error': str(e)
+            }

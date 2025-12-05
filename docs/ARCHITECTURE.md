@@ -161,6 +161,24 @@ Implementado para entregar recompensas configuradas a usuarios cuando suben de r
 - **Manejo de Errores**: Implementación de manejo específico para errores en envío de recompensas sin afectar el flujo principal de gamificación
 - **Clasificación de Medios**: Sistema inteligente que clasifica archivos multimedia para envío apropiado como álbum o archivos individuales
 
+## Sistema de Recompensa Diaria
+
+Implementado para fomentar la participación diaria de los usuarios:
+
+- **last_daily_claim**: Nuevo campo en el modelo GamificationProfile para rastrear la última reclamación diaria de cada usuario
+- **claim_daily_reward**: Método en GamificationService que implementa la lógica de cooldown de 24 horas
+  - Verifica si ha pasado al menos 24 horas desde la última reclamación
+  - Otorga 50 puntos fijos por cada check-in diario exitoso
+  - Actualiza la fecha de última reclamación en el perfil del usuario
+  - Maneja adecuadamente casos de cooldown con cálculo preciso del tiempo restante
+- **Notificaciones de Recompensa Diaria**: Plantillas específicas para notificar el estado de las recompensas diarias
+  - **daily_success**: Notificación cuando el usuario reclama su recompensa diaria exitosamente
+  - **daily_cooldown**: Notificación cuando el usuario intenta reclamar antes de que haya pasado el cooldown de 24 horas
+- **Handler /daily**: Comando en el handler de usuarios que permite a los usuarios reclamar su recompensa diaria
+  - Interactúa con GamificationService para procesar la reclamación
+  - Envía notificaciones personalizadas según el resultado de la operación
+  - Maneja adecuadamente la creación de perfiles nuevos si el usuario no tiene uno existente
+
 ## Sistema de Gestión de Packs de Contenido
 
 Implementado para administrar contenido multimedia como recompensas en el sistema de gamificación:

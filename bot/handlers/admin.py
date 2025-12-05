@@ -173,6 +173,44 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
         )
 
 
+@admin_router.message(Command("help"))
+async def cmd_help(message: Message, session: AsyncSession):
+    """
+    Show a list of available commands for administrators.
+    """
+    user_id = message.from_user.id
+    settings = Settings()
+    is_admin = user_id in settings.admin_ids_list
+
+    if not is_admin:
+        await message.reply("❌ Acceso denegado. Solo para administradores.")
+        return
+
+    help_text = (
+        "📋 <b>COMANDOS DISPONIBLES</b>\n\n"
+
+        "<b>COMANDOS DE ADMINISTRADOR:</b>\n"
+        "• <code>/admin</code> - Acceder al panel de administración\n"
+        "• <code>/start</code> - Iniciar el bot (menú administrador si eres admin)\n"
+        "• <code>/help</code> - Mostrar este mensaje de ayuda\n\n"
+
+        "<b>COMANDOS DE USUARIO:</b>\n"
+        "• <code>/daily</code> - Reclamar recompensa diaria\n\n"
+
+        "<b>FUNCIONALIDADES DEL SISTEMA:</b>\n"
+        "• Sistema de suscripciones VIP y tokens\n"
+        "• Gestión de canales (VIP y Gratuitos)\n"
+        "• Sistema de gamificación con puntos y rangos\n"
+        "• Envío de publicaciones con reacciones\n"
+        "• Sistema de recompensas automáticas\n"
+        "• Estadísticas y análisis avanzado\n"
+        "• Event Bus para comunicación entre módulos\n"
+        "• Sistema de recompensa diaria (streaks)\n"
+    )
+
+    await message.answer(help_text, parse_mode="HTML")
+
+
 # Navigation callback handlers
 @admin_router.callback_query(F.data == "admin_main_menu")
 async def admin_main_menu(callback_query: CallbackQuery):
