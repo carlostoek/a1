@@ -163,17 +163,12 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
             await message.reply(f"❌ Ocurrió un error inesperado: {e}")
 
     elif is_admin:
-        # Admin menu flow
+        # Admin menu flow - use the same dynamic channel naming as the callback handler
+        main_options = await get_main_menu_options(message.bot, session)
+
         welcome_text = "Bienvenido al Panel de Administración del Bot."
 
         # Use MenuFactory for consistency
-        main_options = [
-            ("💎 **Gestión VIP**", "admin_vip"),
-            ("💬 **Gestión Free**", "admin_free"),
-            ("📊 **Centro de Reportes**", "admin_stats"),
-            ("⚙️ **Diagnóstico y Config**", "admin_config"),
-        ]
-
         menu_data = MenuFactory.create_menu(
             title="Panel de Control A1",
             options=main_options,
@@ -231,9 +226,17 @@ async def cmd_help(message: Message):
 
 
 # Navigation callback handlers
-@admin_router.callback_query(F.data == "admin_main_menu")
-async def admin_main_menu(callback_query: CallbackQuery, session: AsyncSession, services: Services):
-    """Edit message to show main menu using MenuFactory."""
+async def get_main_menu_options(bot, session: AsyncSession):
+    """
+    Helper function to generate main menu options with dynamic channel names.
+
+    Args:
+        bot: Bot instance to get channel info
+        session: Database session to get config
+
+    Returns:
+        List of tuples containing (text, callback_data) for menu options
+    """
     # Get the bot configuration to check if channels are configured
     config = await ConfigService.get_bot_config(session)
 
@@ -246,7 +249,7 @@ async def admin_main_menu(callback_query: CallbackQuery, session: AsyncSession, 
     if config.vip_channel_id:
         try:
             # Get channel info from Telegram using the bot
-            chat = await callback_query.bot.get_chat(chat_id=config.vip_channel_id)
+            chat = await bot.get_chat(chat_id=config.vip_channel_id)
             # Use the channel title if available, otherwise use the ID
             channel_name = chat.title if chat.title else f"VIP-{config.vip_channel_id}"
             vip_menu_text = f"💎 **{channel_name}**"
@@ -257,7 +260,7 @@ async def admin_main_menu(callback_query: CallbackQuery, session: AsyncSession, 
     if config.free_channel_id:
         try:
             # Get channel info from Telegram using the bot
-            chat = await callback_query.bot.get_chat(chat_id=config.free_channel_id)
+            chat = await bot.get_chat(chat_id=config.free_channel_id)
             # Use the channel title if available, otherwise use the ID
             channel_name = chat.title if chat.title else f"Free-{config.free_channel_id}"
             free_menu_text = f"💬 **{channel_name}**"
@@ -272,6 +275,15 @@ async def admin_main_menu(callback_query: CallbackQuery, session: AsyncSession, 
         ("📊 **Centro de Reportes**", "admin_stats"),
         ("⚙️ **Diagnóstico y Config**", "admin_config"),
     ]
+
+    return main_options
+
+
+@admin_router.callback_query(F.data == "admin_main_menu")
+async def admin_main_menu(callback_query: CallbackQuery, session: AsyncSession, services: Services):
+    """Edit message to show main menu using MenuFactory."""
+    # Get main menu options with dynamic channel names
+    main_options = await get_main_menu_options(callback_query.bot, session)
 
     # Generate menu using factory
     menu_data = MenuFactory.create_menu(
