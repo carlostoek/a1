@@ -618,3 +618,129 @@ class GamificationService:
                 'success': False,
                 'error': str(e)
             }
+
+    async def get_referral_link(self, user_id: int, bot_username: str) -> str:
+        """
+        Generate a referral link for the user.
+
+        Args:
+            user_id: ID of the user requesting the referral link
+            bot_username: Username of the bot (without @)
+
+        Returns:
+            The referral link as a string
+        """
+        return f"https://t.me/{bot_username}?start=ref_{user_id}"
+
+    async def process_referral(self, new_user_id: int, ref_payload: str, session) -> bool:
+        """
+        Process a referral when a new user joins using a referral link.
+
+        Args:
+            new_user_id: ID of the new user
+            ref_payload: The referral payload (e.g., "ref_12345")
+            session: Database session
+
+        Returns:
+            True if referral was processed successfully, False otherwise
+        """
+        try:
+            # Extract the referrer ID from the payload
+            if not ref_payload.startswith("ref_"):
+                self.logger.event(f"Invalid referral payload format: {ref_payload}")
+                return False
+
+            try:
+                referrer_id = int(ref_payload[4:])  # Extract the number after "ref_"
+            except ValueError:
+                self.logger.event(f"Invalid referral payload format (non-numeric ID): {ref_payload}")
+                return False
+
+            # Check if the new user already has a gamification profile (must be truly new)
+            result = await session.execute(
+                select(GamificationProfile).where(GamificationProfile.user_id == new_user_id)
+            )
+            existing_profile = result.scalar_one_or_none()
+
+            if existing_profile:
+                self.logger.event(f"User {new_user_id} already has a gamification profile, referral ignored")
+                return False
+
+            # Check that referrer and referee are not the same person (anti-loop)
+            if new_user_id == referrer_id:
+                self.logger.event(f"User {new_user_id} tried to refer themselves, preventing referral loop")
+                return False
+
+            # Check if the referrer exists in the database
+            result = await session.execute(
+                select(GamificationProfile).where(GamificationProfile.user_id == referrer_id)
+            )
+            referrer_profile = result.scalar_one_or_none()
+
+            if not referrer_profile:
+                self.logger.event(f"Referrer {referrer_id} does not exist in database")
+                return False
+
+            # Create a new gamification profile for the new user with the referral info
+            rank_result = await session.execute(
+                select(Rank).where(Rank.min_points == 0)
+            )
+            starting_rank = rank_result.scalar_one_or_none()
+
+            new_profile = GamificationProfile(
+                user_id=new_user_id,
+                points=0,
+                current_rank_id=starting_rank.id if starting_rank else None,
+                referred_by_id=referrer_id,  # Set who referred this user
+                referrals_count=0  # New users start with 0 referrals
+            )
+            session.add(new_profile)
+
+            # Update referrer's profile: add points and increment referral count
+            referrer_profile.referrals_count += 1
+            await self.add_points(referrer_id, 100, session)  # Reward referrer with 100 points
+
+            # Add points to the new user (50 points as incentive)
+            await self.add_points(new_user_id, 50, session)  # Reward new user with 50 points
+
+            # Commit the changes
+            await session.commit()
+
+            # Send notifications
+            try:
+                # Notify referrer about the new referral
+                await self.notification_service.send_notification(
+                    referrer_id,
+                    "referral_success",
+                    context_data={
+                        "points": 100
+                    }
+                )
+                self.logger.success(f"Referral notification sent to referrer {referrer_id}")
+            except Exception as e:
+                self.logger.error(f"Error sending referral notification to referrer {referrer_id}: {e}")
+
+            try:
+                # Notify the new user about their bonus
+                await self.notification_service.send_notification(
+                    new_user_id,
+                    "referral_bonus",
+                    context_data={
+                        "points": 50
+                    }
+                )
+                self.logger.success(f"Referral bonus notification sent to new user {new_user_id}")
+            except Exception as e:
+                self.logger.error(f"Error sending referral bonus notification to user {new_user_id}: {e}")
+
+            self.logger.success(f"Successfully processed referral: {referrer_id} -> {new_user_id}")
+            return True
+
+        except SQLAlchemyError as e:
+            self.logger.database(f"Database error processing referral for user {new_user_id}: {e}", exc_info=True)
+            await session.rollback()
+            return False
+        except Exception as e:
+            self.logger.error(f"Unexpected error processing referral for user {new_user_id}: {e}", exc_info=True)
+            await session.rollback()
+            return False

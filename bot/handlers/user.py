@@ -11,6 +11,7 @@ from bot.middlewares.db import DBSessionMiddleware
 from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
+from bot.database.models import GamificationProfile
 
 # Regular expression patterns compiled once at module level for efficiency
 _UUID_PATTERN = re.compile(r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$')
@@ -128,3 +129,61 @@ async def cmd_daily_checkin(message: Message, session, services):
             await message.reply(f"⚠️ Error al procesar tu solicitud: {error_message}")
             # Optionally log this for debugging
             # logger.error(f"Error in daily reward for user {user_id}: {error_message}")
+
+
+@user_router.message(Command("invite"))
+async def cmd_invite_friends(message: Message, session, services: Services, bot: Bot):
+    """
+    Invite friends command.
+    Generates a referral link for the user and shows their referral stats.
+    """
+    user_id = message.from_user.id
+
+    # Get bot info to generate the referral link
+    try:
+        bot_info = await bot.get_me()
+        bot_username = bot_info.username
+    except Exception as e:
+        await message.reply("❌ Error al obtener información del bot. Inténtalo más tarde.")
+        return
+
+    # Generate referral link
+    referral_link = await services.gamification.get_referral_link(user_id, bot_username)
+
+    # Get referral stats for the user
+    result = await session.execute(
+        select(GamificationProfile).where(GamificationProfile.user_id == user_id)
+    )
+    profile = result.scalar_one_or_none()
+
+    if not profile:
+        # If the user doesn't have a profile, create one
+        from bot.database.models import Rank
+        rank_result = await session.execute(
+            select(Rank).where(Rank.min_points == 0)
+        )
+        starting_rank = rank_result.scalar_one_or_none()
+
+        profile = GamificationProfile(
+            user_id=user_id,
+            points=0,
+            current_rank_id=starting_rank.id if starting_rank else None,
+            referrals_count=0
+        )
+        session.add(profile)
+        await session.commit()
+        await session.refresh(profile)
+
+    # Get the number of successful referrals
+    referrals_count = profile.referrals_count
+
+    # Send referral information
+    response_text = (
+        f"🚀 ¡Gana Puntos Invitando!\n"
+        f"Comparte este enlace con tus amigos. Cuando entren por primera vez, ambos ganan:\n"
+        f"   Tú: +100 pts | Ellos: +50 pts\n\n"
+        f"🔗 Tu Enlace: {referral_link} (Toca para copiar)\n"
+        f"👥 Has invitado a: {referrals_count} personas."
+    )
+
+    await message.reply(response_text)
