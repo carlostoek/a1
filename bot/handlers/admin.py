@@ -39,7 +39,7 @@ async def safe_edit_message(callback_query: CallbackQuery, text: str, reply_mark
     Safely edit a message, handling the 'message is not modified' error.
     """
     try:
-        await callback_query.message.edit_text(text, reply_markup=reply_markup)
+        await callback_query.message.edit_text(text, reply_markup=reply_markup, parse_mode="MarkdownV2")
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             # If the message hasn't changed, just answer the callback
@@ -177,7 +177,7 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
             has_main=False   # Command start doesn't have main button (it IS the main)
         )
 
-        await message.answer(menu_data['text'], reply_markup=menu_data['markup'])
+        await message.answer(menu_data['text'], reply_markup=menu_data['markup'], parse_mode="MarkdownV2")
 
     else:
         # Generic user welcome
@@ -241,9 +241,9 @@ async def get_main_menu_options(bot, session: AsyncSession):
     config = await ConfigService.get_bot_config(session)
 
     # Get channel information for VIP and Free channels
-    # Default button text
-    vip_menu_text = "💎 **Gestión VIP**"
-    free_menu_text = "💬 **Gestión Free**"
+    # Default button text (without bold formatting for buttons as they don't support it)
+    vip_menu_text = "💎 Gestión VIP"
+    free_menu_text = "💬 Gestión Free"
 
     # Try to get the actual channel names if configured
     if config.vip_channel_id:
@@ -252,10 +252,10 @@ async def get_main_menu_options(bot, session: AsyncSession):
             chat = await bot.get_chat(chat_id=config.vip_channel_id)
             # Use the channel title if available, otherwise use the ID
             channel_name = chat.title if chat.title else f"VIP-{config.vip_channel_id}"
-            vip_menu_text = f"💎 **{channel_name}**"
+            vip_menu_text = f"💎 {channel_name}"
         except Exception:
             # If there's an error getting the channel info, just show the configured status
-            vip_menu_text = f"💎 **VIP Configurado**"
+            vip_menu_text = f"💎 VIP Configurado"
 
     if config.free_channel_id:
         try:
@@ -263,17 +263,17 @@ async def get_main_menu_options(bot, session: AsyncSession):
             chat = await bot.get_chat(chat_id=config.free_channel_id)
             # Use the channel title if available, otherwise use the ID
             channel_name = chat.title if chat.title else f"Free-{config.free_channel_id}"
-            free_menu_text = f"💬 **{channel_name}**"
+            free_menu_text = f"💬 {channel_name}"
         except Exception:
             # If there's an error getting the channel info, just show the configured status
-            free_menu_text = f"💬 **Free Configurado**"
+            free_menu_text = f"💬 Free Configurado"
 
     # Define main menu options according to specification
     main_options = [
         (vip_menu_text, "admin_vip"),
         (free_menu_text, "admin_free"),
-        ("📊 **Centro de Reportes**", "admin_stats"),
-        ("⚙️ **Diagnóstico y Config**", "admin_config"),
+        ("📊 Centro de Reportes", "admin_stats"),
+        ("⚙️ Diagnóstico y Config", "admin_config"),
     ]
 
     return main_options
