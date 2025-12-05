@@ -53,6 +53,31 @@
 - **Éxito**: "📅 **¡Check-in Diario Completado!**\nHas ganado +{points} puntos por volver hoy.\n✅ Racha actual: {streak} días (Futuro)\n🏆 Total Puntos: {total_points}"
 - **Cooldown**: "⏳ **¡Vuelve más tarde!**\nYa reclamaste tu recompensa de hoy.\nPodrás reclamar de nuevo en: **{remaining_time}**."
 
+### `/invite`
+
+**Descripción**: Genera un enlace de referido único para que el usuario invite a amigos y muestre estadísticas de referidos.
+
+**Flujo**:
+1. El bot genera un enlace único con el formato `https://t.me/nombre_bot?start=ref_user_id`
+2. Muestra el enlace para que el usuario lo comparta
+3. Muestra el número de referidos exitosos del usuario
+4. Envía notificación con información sobre las recompensas por referidos
+
+**Ejemplo de uso**:
+```
+/invite
+```
+
+**Notificación**:
+```
+🚀 ¡Gana Puntos Invitando!
+Comparte este enlace con tus amigos. Cuando entren por primera vez, ambos ganan:
+   Tú: +100 pts | Ellos: +50 pts
+
+🔗 Tu Enlace: https://t.me/bot_username?start=ref_12345 (Toca para copiar)
+👥 Has invitado a: 5 personas.
+```
+
 ## Comandos de Administrador
 
 ### `/admin`
