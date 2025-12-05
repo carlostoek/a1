@@ -50,6 +50,11 @@ class ServiceContainer:
         return self._config_service
 
     @property
+    def notification(self) -> NotificationService:
+        """Acceso al servicio de Notificaciones (Mensajería al usuario)."""
+        return self._notification_service
+
+    @property
     def notify(self) -> NotificationService:
         """Acceso al servicio de Notificaciones (Mensajería al usuario)."""
         return self._notification_service
