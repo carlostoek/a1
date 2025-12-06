@@ -25,9 +25,6 @@ class BotConfig(Base):
     daily_reward_points: Mapped[int] = mapped_column(Integer, default=50)
     referral_reward_points: Mapped[int] = mapped_column(Integer, default=100)  # Puntos para quien invita
 
-    # Seguridad
-    content_protection_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-
 
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"

@@ -405,10 +405,6 @@ async def process_onboard_free_channel(message: Message, state: FSMContext, sess
 @admin_router.callback_query(F.data == "protection_on")
 async def setup_protection_on(callback_query: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Set protection to enabled."""
-    # Get the mode to determine what step comes next
-    data = await state.get_data()
-    mode = data.get('mode', 'quick')
-
     # Toggle VIP content protection on
     result = await ConfigService.toggle_content_protection(session, "vip", True)
 
@@ -435,10 +431,6 @@ async def setup_protection_on(callback_query: CallbackQuery, session: AsyncSessi
 @admin_router.callback_query(F.data == "protection_off")
 async def setup_protection_off(callback_query: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Set protection to disabled."""
-    # Get the mode to determine what step comes next
-    data = await state.get_data()
-    mode = data.get('mode', 'quick')
-
     # Toggle VIP content protection off
     result = await ConfigService.toggle_content_protection(session, "vip", False)
 
@@ -465,8 +457,6 @@ async def setup_protection_off(callback_query: CallbackQuery, session: AsyncSess
 @admin_router.callback_query(F.data.in_(["protection_free_on", "protection_free_off"]))
 async def setup_free_protection(callback_query: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Set free channel protection based on user choice."""
-    data = await state.get_data()
-    mode = data.get('mode', 'quick')
 
     # Determine if free protection should be enabled
     enable_free_protection = callback_query.data == "protection_free_on"
@@ -496,10 +486,6 @@ async def process_welcome_message(message: Message, state: FSMContext, session: 
     if user_id not in settings.admin_ids_list:
         await message.reply("Acceso denegado")
         return
-
-    # Get the mode to determine what step comes next
-    data = await state.get_data()
-    mode = data.get('mode', 'quick')
 
     # Update the welcome message in the config
     result = await ConfigService.update_welcome_message(session, message.text)
@@ -590,7 +576,7 @@ async def process_onboard_wait_time(message: Message, state: FSMContext, session
 
 
 @admin_router.message(AdminOnboardingStates.create_first_tier)
-async def process_onboard_tier_name(message: Message, state: FSMContext):
+async def process_onboard_tier_name(message: Message, state: FSMContext, session: AsyncSession):
     """Capture the tier name and ask for the duration."""
     data = await state.get_data()
     current_step = data.get('current_step', 'create_first_tier')
@@ -629,8 +615,6 @@ async def process_onboard_tier_name(message: Message, state: FSMContext):
             await state.clear()
 
             # Show the main menu
-            from bot.utils.ui import MenuFactory
-            from bot.services.config_service import ConfigService
             settings = Settings()
 
             # Prepare main menu options

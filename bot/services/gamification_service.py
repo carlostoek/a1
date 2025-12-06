@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from aiogram.types import InputMediaPhoto, InputMediaVideo
 from bot.database.models import GamificationProfile, Rank, RewardContentPack, RewardContentFile
+from bot.services.config_service import ConfigService
 from bot.services.event_bus import Events
 from bot.services.subscription_service import SubscriptionService
 
@@ -572,7 +573,6 @@ class GamificationService:
                 await session.refresh(profile)
 
             # Get daily reward points from bot config
-            from bot.services.config_service import ConfigService
             config = await ConfigService.get_bot_config(session)
             daily_points = config.daily_reward_points
 
@@ -684,7 +684,6 @@ class GamificationService:
                 return False
 
             # Get referral reward points from bot config
-            from bot.services.config_service import ConfigService
             config = await ConfigService.get_bot_config(session)
             referrer_reward_points = config.referral_reward_points
             # Using a fixed value for referred user reward (50) as it's not configurable in the model
