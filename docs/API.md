@@ -768,3 +768,109 @@ Modelo que representa un archivo individual que forma parte de un pack de conten
 - **file_id**: ID de Telegram para enviar el archivo
 - **file_unique_id**: ID único para evitar duplicados
 - **media_type**: Tipo de contenido ('photo', 'video', 'document')
+
+## Wizard Engine
+
+### Core Components
+
+#### WizardContext
+
+Clase que representa el estado actual de un wizard activo.
+
+- **wizard_id**: Identificador único del tipo de wizard
+- **current_step_index**: Índice del paso actual en el flujo del wizard
+- **data**: Diccionario que almacena los datos recolectados durante el wizard
+- **return_context**: Contexto opcional para flujos anidados
+
+#### WizardStep
+
+Clase que define un paso individual en un wizard.
+
+- **name**: Nombre identificador del paso
+- **text_provider**: Función que genera el texto a mostrar en este paso
+- **keyboard_provider**: Función opcional que genera el teclado inline para este paso
+- **validator**: Función opcional que valida la entrada del usuario
+- **on_valid**: Función opcional que procesa la entrada válida y actualiza el contexto
+
+#### BaseWizard
+
+Clase base abstracta para todos los wizards.
+
+- **get_steps()**: Método que devuelve la lista de pasos del wizard
+- **on_complete(context, session)**: Método asincrónico que se ejecuta al completar todos los pasos
+
+### WizardService
+
+Servicio central que gestiona la ejecución de wizards.
+
+#### Funciones Principales
+
+- **start_wizard(user_id, wizard_class, fsm_context, return_context=None, services=None)**
+  - Inicia una nueva instancia de wizard para un usuario
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario
+    - `wizard_class`: Clase del wizard a iniciar
+    - `fsm_context`: Contexto FSM para persistencia de estado
+    - `return_context`: Contexto opcional para flujos anidados
+    - `services`: Contenedor de servicios para inyección de dependencias
+  - No retorna valor
+  - Inicializa el contexto del wizard y lo almacena en FSM
+
+- **process_message_input(user_id, text, fsm_context, session)**
+  - Procesa la entrada de texto del usuario durante un wizard activo
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario
+    - `text`: Texto ingresado por el usuario
+    - `fsm_context`: Contexto FSM con el estado del wizard
+    - `session`: Sesión de base de datos para operaciones
+  - **Retorna**: Tupla con (resultado, estado) donde resultado puede contener texto y teclado para mostrar
+  - Valida la entrada, actualiza el contexto y avanza al siguiente paso si es válido
+
+- **process_callback_input(user_id, callback_data, fsm_context, session)**
+  - Procesa la entrada de callback (botones inline) durante un wizard activo
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario
+    - `callback_data`: Datos del callback (por ejemplo, "yes", "no")
+    - `fsm_context`: Contexto FSM con el estado del wizard
+    - `session`: Sesión de base de datos para operaciones
+  - **Retorna**: Tupla con (resultado, estado) similar a process_message_input
+  - Maneja la lógica condicional basada en la selección del usuario
+
+- **render_current_step(user_id, fsm_context)**
+  - Genera el contenido del paso actual para mostrar al usuario
+  - Parámetros:
+    - `user_id`: ID de Telegram del usuario
+    - `fsm_context`: Contexto FSM con el estado del wizard
+  - **Retorna**: Diccionario con 'text' y 'keyboard' para mostrar al usuario
+  - Utilizado para mostrar el primer paso o regenerar la vista actual
+
+### Available Wizards
+
+#### RankWizard
+
+Wizard para crear nuevos rangos de gamificación.
+
+- **Flujo**:
+  1. Ingreso del nombre del rango (mínimo 3 caracteres)
+  2. Ingreso de puntos mínimos requeridos (número entero)
+  3. Pregunta sobre si otorga días VIP (Sí/No con teclado inline)
+  4. Si se selecciona VIP, ingreso de cantidad de días VIP (número entero)
+
+- **on_complete**: Crea un nuevo rango en la base de datos con los parámetros especificados
+
+### Validators
+
+#### CommonValidators
+
+Validadores comunes disponibles para uso en wizards.
+
+- **text_min_length(min_len)**: Valida que el texto tenga al menos la longitud mínima especificada
+- **is_integer(min_val)**: Valida que la entrada sea un número entero mayor o igual al valor mínimo
+
+### UI Renderer
+
+#### WizardUIRenderer
+
+Componente para generar interfaces de usuario estándar para wizards.
+
+- **yes_no_keyboard()**: Crea un teclado inline con botones "Sí" y "No" para preguntas binarias

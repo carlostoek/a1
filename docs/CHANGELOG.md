@@ -111,6 +111,19 @@
   - **Nuevo método update_gamification_settings**: Actualiza la configuración de puntos diarios y por referidos en ConfigService
   - **Nuevo método update_welcome_message**: Actualiza el mensaje de bienvenida en ConfigService
   - **Nuevos campos en BotConfig**: welcome_message, daily_reward_points, referral_reward_points, content_protection_enabled
+- **Wizard Engine**: Nuevo motor de wizards para crear flujos interactivos complejos con validación y lógica condicional
+  - **Arquitectura en 3 capas**: Capa de presentación, capa de servicio y capa de core para máxima modularidad
+  - **Core Components**: WizardContext, WizardStep y BaseWizard para definir flujos interactivos
+  - **WizardService**: Servicio central que gestiona la ejecución de wizards, procesamiento de entrada y validación
+  - **Generic Handlers**: Manejadores genéricos para mensajes y callbacks durante sesiones de wizard
+  - **RankWizard**: Nuevo wizard para crear rangos de gamificación de manera guiada con validación de datos
+  - **Validadores comunes**: Sistema de validación reutilizable para diferentes tipos de entrada (text_min_length, is_integer)
+  - **UI Renderer**: Componentes para generar interfaces de usuario estándar como teclados Sí/No
+  - **Gestión de estado**: Integración completa con FSM de Aiogram para persistencia de estado durante los wizards
+  - **Integración con servicios**: Los wizards pueden acceder a servicios del bot para operaciones de negocio
+  - **Flujos condicionales**: Soporte para lógica condicional basada en respuestas del usuario
+  - **Migración de creación de rangos**: El flujo de creación de rangos ahora utiliza el nuevo sistema de wizard
+  - **Handler start_rank_creation_wizard**: Nuevo handler para iniciar el wizard de creación de rangos desde el menú de administración
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

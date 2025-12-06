@@ -13,6 +13,7 @@ from bot.config import Settings
 from bot.database.base import engine
 from bot.handlers.admin import admin_router
 from bot.handlers.user import user_router
+from bot.handlers.wizard_handler import router as wizard_router
 from bot.tasks import BackgroundTaskManager
 from bot.services.notification_service import NotificationService
 from bot.services.dependency_injection import ServiceContainer
@@ -75,6 +76,7 @@ async def main():
     # Include routers
     dp.include_router(admin_router)
     dp.include_router(user_router)
+    dp.include_router(wizard_router)
 
     # Startup hook
     @dp.startup()

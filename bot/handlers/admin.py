@@ -2207,6 +2207,9 @@ async def vip_manage_ranks_menu(callback_query: CallbackQuery, session: AsyncSes
     else:
         keyboard.button(text="❌ No hay rangos disponibles", callback_data="noop")
 
+    # Add button to create a new rank
+    keyboard.button(text="➕ Crear Nuevo Rango", callback_data="rank_create_new")
+
     # Add "Volver" button
     keyboard.button(text="Volver", callback_data="admin_vip")
 
@@ -2223,6 +2226,40 @@ async def vip_manage_ranks_menu(callback_query: CallbackQuery, session: AsyncSes
         text,
         reply_markup=keyboard.as_markup()
     )
+
+
+# Handler to start creating a new rank using wizard
+@admin_router.callback_query(F.data == "rank_create_new")
+async def start_rank_creation_wizard(callback_query: CallbackQuery, state: FSMContext, services: Services):
+    """
+    Start the wizard for creating a new rank.
+    """
+    from bot.wizards.rank_wizard import RankWizard
+    from bot.services.wizard_service import WizardService
+
+    wizard_service = WizardService()
+
+    # Start the wizard
+    await wizard_service.start_wizard(
+        user_id=callback_query.from_user.id,
+        wizard_class=RankWizard,
+        fsm_context=state,
+        services=services
+    )
+
+    # Render the first step
+    result = await wizard_service.render_current_step(
+        user_id=callback_query.from_user.id,
+        fsm_context=state
+    )
+
+    if result:
+        await callback_query.message.answer(
+            result["text"],
+            reply_markup=result.get("keyboard")
+        )
+
+    await callback_query.answer("Iniciando creación de rango...")
 
 
 # Handler to edit a specific rank
