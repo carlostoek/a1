@@ -417,7 +417,7 @@ class GamificationService:
 
             if pack:
                 # Use ORM to delete, which will handle cascade deletion if properly configured in the model
-                await session.delete(pack)
+                session.delete(pack)
                 await session.commit()
 
                 self.logger.success(f"Deleted content pack: {pack_id}")
@@ -536,6 +536,60 @@ class GamificationService:
             return None
         except Exception as e:
             self.logger.error(f"Unexpected error retrieving rank {rank_id}: {e}", exc_info=True)
+            return None
+
+    async def create_rank(self, name: str, min_points: int, session, reward_vip_days: int = 0,
+                        reward_content_pack_id: Optional[int] = None,
+                        reward_description: Optional[str] = "Recompensa de rango") -> Optional[Rank]:
+        """
+        Creates a new rank with the specified parameters.
+
+        Args:
+            name: Name of the rank
+            min_points: Minimum points required to achieve this rank
+            session: Async database session
+            reward_vip_days: Number of VIP days to reward (default: 0)
+            reward_content_pack_id: ID of content pack to reward (default: None)
+            reward_description: Description of the reward (default: "Recompensa de rango")
+
+        Returns:
+            The created Rank instance or None if creation fails
+        """
+        try:
+            # Check if a rank with this name or min_points already exists
+            result = await session.execute(
+                select(Rank).where((Rank.name == name) | (Rank.min_points == min_points))
+            )
+            existing_rank = result.scalar_one_or_none()
+
+            if existing_rank:
+                self.logger.event(f"Rank with name '{name}' or min_points '{min_points}' already exists")
+                return None
+
+            # Create new rank
+            rank = Rank(
+                name=name,
+                min_points=min_points,
+                reward_description=reward_description,
+                reward_vip_days=reward_vip_days,
+                reward_content_pack_id=reward_content_pack_id
+            )
+            session.add(rank)
+            await session.commit()
+
+            # Refresh the rank to get the generated ID
+            await session.refresh(rank)
+
+            self.logger.success(f"Created rank: {name} (ID: {rank.id})")
+            return rank
+
+        except SQLAlchemyError as e:
+            self.logger.database(f"Database error creating rank '{name}': {e}", exc_info=True)
+            await session.rollback()
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected error creating rank '{name}': {e}", exc_info=True)
+            await session.rollback()
             return None
 
     async def claim_daily_reward(self, user_id: int, session) -> Dict[str, Any]:

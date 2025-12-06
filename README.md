@@ -86,6 +86,15 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - **Integración con /start**: El comando /start ahora también maneja enlaces de referidos en adición a tokens VIP
   - **Mecánica de recompensas**: Referidor obtiene 100 puntos y referido obtiene 50 puntos al registrarse
   - **Protección contra fraude**: Sistema anti-bucle que previene auto-referidos y validaciones para evitar abusos
+- **Wizard Engine**: Nuevo motor de wizards para crear flujos interactivos complejos con validación y lógica condicional
+  - **Arquitectura en 3 capas**: Capa de presentación, capa de servicio y capa de core para máxima modularidad
+  - **RankWizard**: Nuevo wizard para crear rangos de gamificación de manera guiada con validación de datos
+  - **Validadores comunes**: Sistema de validación reutilizable para diferentes tipos de entrada
+  - **UI Renderer**: Componentes para generar interfaces de usuario estándar como teclados Sí/No
+  - **Gestión de estado**: Integración completa con FSM de Aiogram para persistencia de estado durante los wizards
+  - **Integración con servicios**: Los wizards pueden acceder a servicios del bot para operaciones de negocio
+  - **Flujos condicionales**: Soporte para lógica condicional basada en respuestas del usuario
+  - **Handler genérico**: Manejadores de mensajes y callbacks que pueden trabajar con cualquier wizard implementado
 
 ## Instalación
 
@@ -155,6 +164,7 @@ DB_URL=sqlite+aiosqlite:///bot.db
 - [API y Servicios](docs/API.md) - Interacciones y servicios del sistema
 - [Modelos](docs/MODELS.md) - Estructura de base de datos
 - [FSM](docs/FSM.md) - Máquinas de estados para flujos de configuración
+- [Wizard Engine](docs/WIZARD_ENGINE.md) - Documentación del motor de wizards para flujos interactivos
 - [Historial de Cambios](docs/CHANGELOG.md) - Registro de versiones y cambios
 
 ## Contribución
