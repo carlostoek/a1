@@ -1,7 +1,12 @@
-from typing import Type, Dict, Optional
+from typing import Type, Dict, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from bot.wizards.core import BaseWizard, WizardContext, WizardStep
+
+
+class WizardStates(StatesGroup):
+    active = State()
 
 
 class WizardService:
@@ -9,7 +14,7 @@ class WizardService:
         self.active_wizards: Dict[int, WizardContext] = {}  # user_id -> context
 
     async def start_wizard(self, user_id: int, wizard_class: Type[BaseWizard],
-                          fsm_context: FSMContext, return_context: Optional[dict] = None, services=None):
+                          fsm_context: FSMContext, return_context: Optional[dict] = None, services: Optional[Any] = None):
         """Inicializa contexto y guarda en FSM."""
         wizard = wizard_class()
         context = WizardContext(
@@ -20,7 +25,7 @@ class WizardService:
         )
 
         self.active_wizards[user_id] = context
-        await fsm_context.set_state("wizard_active")  # Using a generic state
+        await fsm_context.set_state(WizardStates.active)
         await fsm_context.update_data(wizard_context=context, services=services)
 
     async def process_message_input(self, user_id: int, text: str,
@@ -47,27 +52,7 @@ class WizardService:
 
                 # Verificar si hemos completado todos los pasos
                 if context.current_step_index >= len(wizard.steps):
-                    # Get services from FSM context
-                    fsm_data = await fsm_context.get_data()
-                    services = fsm_data.get('services')
-                    result = await wizard.on_complete(context, session)
-
-                    # If the result contains rank data, create the rank using services
-                    if isinstance(result, dict) and 'name' in result:
-                        from bot.services.gamification_service import GamificationService
-                        gamification_service: GamificationService = services.gamification if services else None
-
-                        if gamification_service:
-                            rank = await gamification_service.create_rank(
-                                name=result['name'],
-                                min_points=result['min_points'],
-                                session=session,
-                                reward_vip_days=result.get('reward_vip_days', 0)
-                            )
-                            result = rank  # Update result with the created rank
-
-                    del self.active_wizards[user_id]  # Limpiar contexto
-                    await fsm_context.clear()
+                    result = await self._process_wizard_completion(user_id, context, fsm_context, session)
                     return result, "Wizard completed"
 
                 # Actualizar contexto en FSM
@@ -88,27 +73,7 @@ class WizardService:
             # Si no hay validador, simplemente avanzar al siguiente paso
             context.current_step_index += 1
             if context.current_step_index >= len(wizard.steps):
-                # Get services from FSM context
-                fsm_data = await fsm_context.get_data()
-                services = fsm_data.get('services')
-                result = await wizard.on_complete(context, session)
-
-                # If the result contains rank data, create the rank using services
-                if isinstance(result, dict) and 'name' in result:
-                    from bot.services.gamification_service import GamificationService
-                    gamification_service: GamificationService = services.gamification if services else None
-
-                    if gamification_service:
-                        rank = await gamification_service.create_rank(
-                            name=result['name'],
-                            min_points=result['min_points'],
-                            session=session,
-                            reward_vip_days=result.get('reward_vip_days', 0)
-                        )
-                        result = rank  # Update result with the created rank
-
-                del self.active_wizards[user_id]  # Limpiar contexto
-                await fsm_context.clear()
+                result = await self._process_wizard_completion(user_id, context, fsm_context, session)
                 return result, "Wizard completed"
 
             # Actualizar contexto en FSM
@@ -145,6 +110,36 @@ class WizardService:
         if wizard_id == "RankWizard":
             return RankWizard()
         return None
+
+    async def _process_wizard_completion(self, user_id: int, context: WizardContext, fsm_context: FSMContext, session: AsyncSession):
+        """Helper to process wizard completion and create rank if needed."""
+        wizard = self._get_wizard_instance_by_id(context.wizard_id)
+        if not wizard:
+            return None
+
+        result = await wizard.on_complete(context, session)
+
+        # If the result contains rank data, create the rank using services
+        if isinstance(result, dict) and 'name' in result:
+            fsm_data = await fsm_context.get_data()
+            services = fsm_data.get('services')
+
+            if services and hasattr(services, 'gamification'):
+                from bot.services.gamification_service import GamificationService
+                gamification_service: GamificationService = services.gamification
+
+                if gamification_service:
+                    rank = await gamification_service.create_rank(
+                        name=result['name'],
+                        min_points=result['min_points'],
+                        session=session,
+                        reward_vip_days=result.get('reward_vip_days', 0)
+                    )
+                    result = rank
+
+        del self.active_wizards[user_id]
+        await fsm_context.clear()
+        return result
 
     async def process_callback_input(self, user_id: int, callback_data: str,
                                    fsm_context: FSMContext, session: AsyncSession):
@@ -183,26 +178,7 @@ class WizardService:
                         return {"text": message_text, "keyboard": keyboard}, "Waiting for VIP days"
                     else:
                         # If no more steps, complete the wizard
-                        fsm_data = await fsm_context.get_data()
-                        services = fsm_data.get('services')
-                        result = await wizard.on_complete(context, session)
-
-                        # If the result contains rank data, create the rank using services
-                        if isinstance(result, dict) and 'name' in result:
-                            from bot.services.gamification_service import GamificationService
-                            gamification_service: GamificationService = services.gamification if services else None
-
-                            if gamification_service:
-                                rank = await gamification_service.create_rank(
-                                    name=result['name'],
-                                    min_points=result['min_points'],
-                                    session=session,
-                                    reward_vip_days=result.get('reward_vip_days', 0)
-                                )
-                                result = rank  # Update result with the created rank
-
-                        del self.active_wizards[user_id]  # Limpiar contexto
-                        await fsm_context.clear()
+                        result = await self._process_wizard_completion(user_id, context, fsm_context, session)
                         return result, "Wizard completed"
                 else:
                     # If no VIP, skip to next step - if there are further steps, we'll need to handle
@@ -213,26 +189,7 @@ class WizardService:
 
                         # If we're now at the end (no more steps), complete the wizard
                         if context.current_step_index >= len(wizard.steps):
-                            fsm_data = await fsm_context.get_data()
-                            services = fsm_data.get('services')
-                            result = await wizard.on_complete(context, session)
-
-                            # If the result contains rank data, create the rank using services
-                            if isinstance(result, dict) and 'name' in result:
-                                from bot.services.gamification_service import GamificationService
-                                gamification_service: GamificationService = services.gamification if services else None
-
-                                if gamification_service:
-                                    rank = await gamification_service.create_rank(
-                                        name=result['name'],
-                                        min_points=result['min_points'],
-                                        session=session,
-                                        reward_vip_days=result.get('reward_vip_days', 0)
-                                    )
-                                    result = rank  # Update result with the created rank
-
-                            del self.active_wizards[user_id]  # Limpiar contexto
-                            await fsm_context.clear()
+                            result = await self._process_wizard_completion(user_id, context, fsm_context, session)
                             return result, "Wizard completed"
                         else:
                             # If there are more steps after VIP days, move to the next one
@@ -243,26 +200,7 @@ class WizardService:
                             return {"text": message_text, "keyboard": keyboard}, "Moved to next step"
                     else:
                         # If there are no more steps, complete the wizard
-                        fsm_data = await fsm_context.get_data()
-                        services = fsm_data.get('services')
-                        result = await wizard.on_complete(context, session)
-
-                        # If the result contains rank data, create the rank using services
-                        if isinstance(result, dict) and 'name' in result:
-                            from bot.services.gamification_service import GamificationService
-                            gamification_service: GamificationService = services.gamification if services else None
-
-                            if gamification_service:
-                                rank = await gamification_service.create_rank(
-                                    name=result['name'],
-                                    min_points=result['min_points'],
-                                    session=session,
-                                    reward_vip_days=result.get('reward_vip_days', 0)
-                                )
-                                result = rank  # Update result with the created rank
-
-                        del self.active_wizards[user_id]  # Limpiar contexto
-                        await fsm_context.clear()
+                        result = await self._process_wizard_completion(user_id, context, fsm_context, session)
                         return result, "Wizard completed"
             else:
                 return None, "Invalid callback"

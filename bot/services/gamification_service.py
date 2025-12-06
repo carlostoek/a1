@@ -417,7 +417,7 @@ class GamificationService:
 
             if pack:
                 # Use ORM to delete, which will handle cascade deletion if properly configured in the model
-                await session.delete(pack)
+                session.delete(pack)
                 await session.commit()
 
                 self.logger.success(f"Deleted content pack: {pack_id}")
