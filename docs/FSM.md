@@ -155,6 +155,44 @@ Gestiona la configuración de recompensas para rangos de gamificación.
 2. Bot solicita número de días VIP → `waiting_vip_days`
 3. Usuario envía número → Rango actualizado con días VIP, estado limpiado
 
+## AdminOnboardingStates
+
+Gestiona el flujo de configuración inicial del bot con opciones de configuración rápida o completa.
+
+**Estados**:
+- `intro`: Presentación de opciones de configuración (rápida o completa)
+- `setup_vip_channel`: Espera el ID del canal VIP o mensaje reenviado
+- `setup_free_channel`: Espera el ID del canal gratuito o mensaje reenviado
+- `setup_protection`: Configuración de protección de contenido para canales
+- `setup_welcome_msg`: Espera el mensaje de bienvenida
+- `setup_gamification`: Espera la configuración de puntos diarios y por referidos
+- `setup_wait_time`: Espera el tiempo de espera en minutos
+- `create_first_tier`: Espera datos para crear la primera tarifa de suscripción (nombre, duración, precio)
+
+**Flujo - Configuración Rápida**:
+1. Administrador inicia sesión por primera vez → `intro` → Selección de "Configuración Rápida"
+2. Bot solicita canal VIP → `setup_vip_channel`
+3. Usuario envía canal VIP → Bot solicita canal gratuito → `setup_free_channel`
+4. Usuario envía canal gratuito → Bot solicita tiempo de espera → `setup_wait_time`
+5. Usuario envía tiempo → Bot solicita nombre de tarifa → `create_first_tier` (nombre)
+6. Usuario envía nombre → Bot solicita duración → `create_first_tier` (duración)
+7. Usuario envía duración → Bot solicita precio → `create_first_tier` (precio)
+8. Usuario envía precio → Tarifa creada, configuración completa → estado limpiado
+
+**Flujo - Configuración Completa**:
+1. Administrador inicia sesión por primera vez → `intro` → Selección de "Configuración Completa"
+2. Bot solicita canal VIP → `setup_vip_channel`
+3. Usuario envía canal VIP → Bot solicita canal gratuito → `setup_free_channel`
+4. Usuario envía canal gratuito → Bot pregunta sobre protección VIP → `setup_protection`
+5. Usuario responde protección VIP → Bot pregunta sobre protección gratuito → `setup_protection`
+6. Usuario responde protección gratuito → Bot solicita mensaje de bienvenida → `setup_welcome_msg`
+7. Usuario envía mensaje → Bot solicita puntos (diarios, referidos) → `setup_gamification`
+8. Usuario envía puntos → Bot solicita tiempo de espera → `setup_wait_time`
+9. Usuario envía tiempo → Bot solicita nombre de tarifa → `create_first_tier` (nombre)
+10. Usuario envía nombre → Bot solicita duración → `create_first_tier` (duración)
+11. Usuario envía duración → Bot solicita precio → `create_first_tier` (precio)
+12. Usuario envía precio → Tarifa creada, configuración completa → estado limpiado
+
 ## Almacenamiento de Datos Temporales
 
 Durante los flujos FSM, se utilizan `state.update_data()` y `state.get_data()` para almacenar temporalmente información entre estados, como el tipo de canal, datos de tarifas en creación, ID de packs o rangos, y contexto de retorno para flujos anidados.

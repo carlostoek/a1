@@ -41,3 +41,20 @@ class ContentPackCreationStates(StatesGroup):
 
 class RankConfigStates(StatesGroup):
     waiting_vip_days = State()  # Para editar los días VIP de premio
+
+
+class AdminOnboardingStates(StatesGroup):
+    intro = State()                 # Selección de Modo (Rápido vs Completo)
+
+    # --- Bloque Común ---
+    setup_vip_channel = State()
+    setup_free_channel = State()
+
+    # --- Bloque "Completo" ---
+    setup_protection = State()      # Toggle seguridad
+    setup_welcome_msg = State()     # Input texto
+    setup_gamification = State()    # Input "daily, referral"
+
+    # --- Bloque Común ---
+    setup_wait_time = State()
+    create_first_tier = State()

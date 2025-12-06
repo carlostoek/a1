@@ -102,6 +102,15 @@
   - **Integración con /start**: El comando /start ahora también maneja enlaces de referidos en adición a tokens VIP
   - **Mecánica de recompensas**: Referidor obtiene 100 puntos y referido obtiene 50 puntos al registrarse
   - **Protección contra fraude**: Sistema anti-bucle que previene auto-referidos y validaciones para evitar abusos
+- **Sistema de Onboarding Dual**: Nuevo asistente de configuración inicial con opciones de configuración rápida y completa para nuevos administradores
+  - **Nuevo FSM AdminOnboardingStates**: Estados FSM para gestionar el flujo de configuración inicial (intro, setup_vip_channel, setup_free_channel, setup_protection, setup_welcome_msg, setup_gamification, setup_wait_time, create_first_tier)
+  - **Flujo de Configuración Rápida**: Permite configurar canales y crear una tarifa básica en pocos pasos
+  - **Flujo de Configuración Completa**: Permite configurar canales, protección de contenido, mensaje de bienvenida, puntos de gamificación y tarifa
+  - **Detección de Primera Vez**: El comando /start ahora detecta si es la primera vez que un administrador accede y activa el onboarding automáticamente
+  - **Configuración Dinámica**: Uso de valores almacenados en la base de datos en lugar de valores hardcodeados para puntos diarios, puntos por referidos y mensaje de bienvenida
+  - **Nuevo método update_gamification_settings**: Actualiza la configuración de puntos diarios y por referidos en ConfigService
+  - **Nuevo método update_welcome_message**: Actualiza el mensaje de bienvenida en ConfigService
+  - **Nuevos campos en BotConfig**: welcome_message, daily_reward_points, referral_reward_points, content_protection_enabled
 
 ### Changed
 - Alineación de tiempo de espera para canales gratuitos a especificaciones

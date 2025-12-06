@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from aiogram.types import InputMediaPhoto, InputMediaVideo
 from bot.database.models import GamificationProfile, Rank, RewardContentPack, RewardContentFile
+from bot.services.config_service import ConfigService
 from bot.services.event_bus import Events
 from bot.services.subscription_service import SubscriptionService
 
@@ -18,9 +19,6 @@ class GamificationService:
     """
     # Constants
     POINTS_PER_REACTION = 10
-    DAILY_REWARD_POINTS = 50  # Fixed: Make daily reward points a class constant
-    REFERRER_REWARD_POINTS = 100  # Fixed: Make referrer reward points a class constant
-    REFERRED_REWARD_POINTS = 50   # Fixed: Make referred user reward points a class constant
 
     def __init__(self, session_maker: async_sessionmaker, event_bus: 'EventBus', notification_service: 'NotificationService', subscription_service: 'SubscriptionService', bot: 'Bot'):
         self.session_maker = session_maker
@@ -574,9 +572,12 @@ class GamificationService:
                 await session.commit()
                 await session.refresh(profile)
 
+            # Get daily reward points from bot config
+            config = await ConfigService.get_bot_config(session)
+            daily_points = config.daily_reward_points
+
             # Check if user can claim daily reward
             now = datetime.now(timezone.utc)
-            daily_points = self.DAILY_REWARD_POINTS  # Using class constant instead of hardcoded value
 
             if profile.last_daily_claim is not None:
                 # Handle potential mismatch between offset-aware and offset-naive datetimes
@@ -682,6 +683,13 @@ class GamificationService:
                 self.logger.event(f"User {new_user_id} tried to refer themselves, preventing referral loop")
                 return False
 
+            # Get referral reward points from bot config
+            config = await ConfigService.get_bot_config(session)
+            referrer_reward_points = config.referral_reward_points
+            # Using a fixed value for referred user reward (50) as it's not configurable in the model
+            # If it needs to be configurable, we'd need to add referred_reward_points to BotConfig
+            referred_reward_points = 50
+
             # Check if the referrer exists in the database
             result = await session.execute(
                 select(GamificationProfile).where(GamificationProfile.user_id == referrer_id)
@@ -698,10 +706,10 @@ class GamificationService:
 
             # Update referrer's profile: add points and increment referral count
             referrer_profile.referrals_count += 1
-            await self.add_points(referrer_id, self.REFERRER_REWARD_POINTS, session)  # Reward referrer
+            await self.add_points(referrer_id, referrer_reward_points, session)  # Reward referrer
 
             # Add points to the new user (as incentive)
-            await self.add_points(new_user_id, self.REFERRED_REWARD_POINTS, session)  # Reward new user
+            await self.add_points(new_user_id, referred_reward_points, session)  # Reward new user
 
             # Commit the changes
             await session.commit()

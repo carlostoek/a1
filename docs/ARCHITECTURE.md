@@ -344,6 +344,47 @@ Implementado para administrar recompensas asociadas a los rangos de gamificació
 - Relación entre `Rank` y `RewardContentPack` para recompensas de rangos
 - Relación entre `GamificationProfile` y `Rank` para seguimiento de rangos de usuarios
 
+## Sistema de Configuración Inicial Dual (Onboarding Assistant)
+
+Implementado para facilitar la configuración inicial del bot con dos opciones: rápida y completa.
+
+- **AdminOnboardingStates**: FSM que gestiona el flujo de configuración inicial del bot
+  - `intro`: Presentación de opciones de configuración (rápida o completa)
+  - `setup_vip_channel`: Espera el ID del canal VIP o mensaje reenviado
+  - `setup_free_channel`: Espera el ID del canal gratuito o mensaje reenviado
+  - `setup_protection`: Configuración de protección de contenido para canales
+  - `setup_welcome_msg`: Espera el mensaje de bienvenida
+  - `setup_gamification`: Espera la configuración de puntos diarios y por referidos
+  - `setup_wait_time`: Espera el tiempo de espera en minutos
+  - `create_first_tier`: Espera datos para crear la primera tarifa de suscripción (nombre, duración, precio)
+
+- **Flujo de Configuración Rápida**:
+  - Presentación de opciones de configuración (rápida vs completa)
+  - Configuración de canales VIP y gratuito
+  - Configuración del tiempo de espera
+  - Creación de la primera tarifa de suscripción
+  - Finalización del proceso de configuración
+
+- **Flujo de Configuración Completa**:
+  - Presentación de opciones de configuración (rápida vs completa)
+  - Configuración de canales VIP y gratuito
+  - Configuración de protección de contenido para ambos canales
+  - Configuración del mensaje de bienvenida
+  - Configuración de puntos diarios y por referidos
+  - Configuración del tiempo de espera
+  - Creación de la primera tarifa de suscripción
+  - Finalización del proceso de configuración
+
+- **Integración con /start**: El handler de comandos `/start` ahora detecta si es la primera vez que un administrador accede al bot
+  - Si no hay canales configurados (VIP y Free), inicia automáticamente el flujo de onboarding
+  - Presenta opciones de configuración rápida o completa según las preferencias del administrador
+  - Utiliza el servicio `ConfigService` para almacenar la configuración dinámica en la base de datos
+
+- **Configuración Dinámica**: El sistema ahora utiliza valores dinámicos almacenados en la base de datos en lugar de valores hardcodeados
+  - `daily_reward_points`: Puntos diarios configurables en lugar de valor fijo
+  - `referral_reward_points`: Puntos por referidos configurables en lugar de valor fijo
+  - `welcome_message`: Mensaje de bienvenida configurable en lugar de texto fijo
+
 ## Seguridad
 
 - Middleware de autenticación para verificar roles de administrador

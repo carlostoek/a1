@@ -38,6 +38,10 @@ Configuración global del bot.
 | subscription_fees | JSON | Tarifas de suscripción | {} |
 | vip_content_protection | Boolean | Indica si la protección de contenido está activada para el canal VIP | False |
 | free_content_protection | Boolean | Indica si la protección de contenido está activada para el canal gratuito | False |
+| welcome_message | Text | Mensaje de bienvenida que ven los usuarios al usar /start | "¡Bienvenido al Bot Oficial! 🚀\nUsa /daily para tu recompensa." |
+| daily_reward_points | Integer | Puntos otorgados por recompensa diaria | 50 |
+| referral_reward_points | Integer | Puntos otorgados por referidos exitosos | 100 |
+| content_protection_enabled | Boolean | Indica si la protección de contenido está activada globalmente | False |
 
 ### UserSubscription
 

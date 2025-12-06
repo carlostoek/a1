@@ -20,7 +20,7 @@ from bot.services.dependency_injection import Services
 from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.services.event_bus import Events
 from bot.database.models import RewardContentFile, RewardContentPack
-from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates, ContentPackCreationStates, RankConfigStates
+from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates, ContentPackCreationStates, RankConfigStates, AdminOnboardingStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 from bot.utils.ui import MenuFactory, ReactionCallback, escape_markdownv2_text
@@ -163,12 +163,13 @@ def get_channels_config_kb():
 
 # Command handlers
 @admin_router.message(Command("admin", "start"))
-async def cmd_admin(message: Message, command: CommandObject, session: AsyncSession, services: Services):
+async def cmd_admin(message: Message, command: CommandObject, session: AsyncSession, services: Services, state: FSMContext):
     """
     Handle the /start and /admin commands.
     - If /start has a token, redeem it.
     - If /start has a referral link (ref_...), process it.
-    - If /start has no token, show a welcome message.
+    - If /start has no token, check if it's the first time admin is setting up the bot.
+    - If admin is first time and no token, start the onboarding process.
     - If /admin is used by an admin, show the admin menu.
     """
     user_id = message.from_user.id
@@ -211,28 +212,428 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
             await safe_send_message(message, f"❌ Ocurrió un error inesperado: {e}")
 
     elif is_admin:
-        # Admin menu flow - use the same dynamic channel naming as the callback handler
-        main_options = await get_main_menu_options(message.bot, session)
+        # Check if this is first-time setup by checking if channels are configured
+        config = await ConfigService.get_bot_config(session)
 
-        welcome_text = "Bienvenido al Panel de Administración del Bot."
+        # If this is the first access (no channels configured), start onboarding
+        if not config.vip_channel_id and not config.free_channel_id:
+            await start_onboarding(message, session, state)
+        else:
+            # Admin menu flow - use the same dynamic channel naming as the callback handler
+            main_options = await get_main_menu_options(message.bot, session)
 
-        # Use MenuFactory for consistency
-        menu_data = MenuFactory.create_menu(
-            title="Panel de Control A1",
-            options=main_options,
-            description=welcome_text,  # Use welcome text as description
-            back_callback=None,  # Command start doesn't have back button
-            has_main=False   # Command start doesn't have main button (it IS the main)
-        )
+            welcome_text = "Bienvenido al Panel de Administración del Bot."
 
-        await message.answer(menu_data['text'], reply_markup=menu_data['markup'], parse_mode="MarkdownV2")
+            # Use MenuFactory for consistency
+            menu_data = MenuFactory.create_menu(
+                title="Panel de Control A1",
+                options=main_options,
+                description=welcome_text,  # Use welcome text as description
+                back_callback=None,  # Command start doesn't have back button
+                has_main=False   # Command start doesn't have main button (it IS the main)
+            )
 
+            await message.answer(menu_data['text'], reply_markup=menu_data['markup'], parse_mode="MarkdownV2")
     else:
+        # Check if there's a welcome message in the config
+        config = await ConfigService.get_bot_config(session)
+        welcome_message = config.welcome_message
+
         # Generic user welcome
-        await message.reply(
-            "👋 ¡Bienvenido! Si tienes un token de invitación, úsalo con el comando `/start TOKEN`.\n"
-            "Si buscas acceso gratuito, usa el comando `/free`."
+        await message.reply(welcome_message)
+
+
+async def start_onboarding(message: Message, session: AsyncSession, state: FSMContext):
+    """
+    Start the onboarding process for first-time admin setup with quick vs complete options.
+    """
+    # Set the state to intro
+    await state.set_state(AdminOnboardingStates.intro)
+
+    # Welcome message with options
+    keyboard = InlineKeyboardBuilder()
+    keyboard.button(text="🚀 Configuración Rápida", callback_data="onboard_quick")
+    keyboard.button(text="🛠️ Configuración Completa", callback_data="onboard_full")
+    keyboard.adjust(1)
+
+    text = "👋 Bienvenido. Detecto que es tu primera vez.\n\nElige cómo quieres configurar tu bot:\n\n"
+    text += "• <b>Configuración Rápida</b>: Canales + Tarifa Básica\n"
+    text += "• <b>Configuración Completa</b>: Canales + Mensajes + Puntos + Seguridad + Tarifa"
+
+    await message.answer(text, reply_markup=keyboard.as_markup(), parse_mode="HTML")
+
+
+@admin_router.callback_query(F.data == "onboard_quick")
+async def onboard_quick_setup(callback_query: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """Start the quick onboarding flow."""
+    await state.update_data(mode='quick')
+    await state.set_state(AdminOnboardingStates.setup_vip_channel)
+
+    # Store the context in the state
+    await state.update_data(current_step='setup_vip_channel')
+
+    await callback_query.message.edit_text(
+        "✅ Modo de Configuración Rápida\nPor favor, envía una de estas dos opciones:\n * El ID numérico del canal VIP (ej: -10012345678).\n * Reenvía un mensaje de ese canal a este chat.\n   Asegúrate de que el bot ya es administrador del canal."
+    )
+    await callback_query.answer()
+
+
+@admin_router.callback_query(F.data == "onboard_full")
+async def onboard_full_setup(callback_query: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """Start the full onboarding flow."""
+    await state.update_data(mode='full')
+    await state.set_state(AdminOnboardingStates.setup_vip_channel)
+
+    # Store the context in the state
+    await state.update_data(current_step='setup_vip_channel')
+
+    await callback_query.message.edit_text(
+        "✅ Modo de Configuración Completa\nPor favor, envía una de estas dos opciones:\n * El ID numérico del canal VIP (ej: -10012345678).\n * Reenvía un mensaje de ese canal a este chat.\n   Asegúrate de que el bot ya es administrador del canal."
+    )
+    await callback_query.answer()
+
+
+# Message handler for VIP channel ID or forwarded message during onboarding
+@admin_router.message(AdminOnboardingStates.setup_vip_channel)
+async def process_onboard_vip_channel(message: Message, state: FSMContext, session: AsyncSession):
+    """Process VIP channel ID input during onboarding."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    channel_id = None
+
+    # Extract ID from forwarded message or from text
+    if message.forward_from_chat:
+        # Channel ID from forwarded message
+        channel_id = message.forward_from_chat.id
+    else:
+        # Assume user sent the numeric ID directly
+        try:
+            channel_id = int(message.text)
+        except (ValueError, TypeError):
+            await message.reply("❌ Error al registrar el canal. Razón: Formato de ID inválido. Por favor, envía un ID numérico válido (ej: -10012345678) o reenvía un mensaje del canal.")
+            return
+
+    # Call the ChannelManagementService to register the VIP channel ID
+    result = await ChannelManagementService.register_channel_id(
+        channel_type="vip",
+        raw_id=channel_id,
+        bot=message.bot,
+        session=session
+    )
+
+    if result["success"]:
+        await state.set_state(AdminOnboardingStates.setup_free_channel)
+        await state.update_data(current_step='setup_free_channel')
+
+        await message.reply(f"🎉 Canal VIP registrado con ID: {result['channel_id']}. ¡Configuración guardada!\n\nAhora por favor configura el canal FREE. Envía una de estas dos opciones:\n * El ID numérico del canal FREE (ej: -10012345678).\n * Reenvía un mensaje de ese canal a este chat.")
+    else:
+        await message.reply(f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
+
+
+# Message handler for Free channel ID or forwarded message during onboarding
+@admin_router.message(AdminOnboardingStates.setup_free_channel)
+async def process_onboard_free_channel(message: Message, state: FSMContext, session: AsyncSession):
+    """Process Free channel ID input during onboarding."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    # Get the mode to determine what step comes next
+    data = await state.get_data()
+    mode = data.get('mode', 'quick')
+
+    channel_id = None
+
+    # Extract ID from forwarded message or from text
+    if message.forward_from_chat:
+        # Channel ID from forwarded message
+        channel_id = message.forward_from_chat.id
+    else:
+        # Assume user sent the numeric ID directly
+        try:
+            channel_id = int(message.text)
+        except (ValueError, TypeError):
+            await message.reply("❌ Error al registrar el canal. Razón: Formato de ID inválido. Por favor, envía un ID numérico válido (ej: -10012345678) o reenvía un mensaje del canal.")
+            return
+
+    # Call the ChannelManagementService to register the Free channel ID
+    result = await ChannelManagementService.register_channel_id(
+        channel_type="free",
+        raw_id=channel_id,
+        bot=message.bot,
+        session=session
+    )
+
+    if result["success"]:
+        # Check the mode to determine the next step
+        if mode == 'full':
+            # Full mode: Continue with protection setup
+            await state.set_state(AdminOnboardingStates.setup_protection)
+            await state.update_data(current_step='setup_protection')
+
+            keyboard = InlineKeyboardBuilder()
+            keyboard.button(text="✅ Sí", callback_data="protection_on")
+            keyboard.button(text="❌ No", callback_data="protection_off")
+            keyboard.adjust(2)
+
+            await message.reply(
+                f"🎉 Canal FREE registrado con ID: {result['channel_id']}. ¡Configuración guardada!\n\n"
+                f"¿Activar protección contra reenvío?",
+                reply_markup=keyboard.as_markup()
+            )
+        else:
+            # Quick mode: Continue with wait time setup
+            await state.set_state(AdminOnboardingStates.setup_wait_time)
+            await state.update_data(current_step='setup_wait_time')
+
+            await message.reply(
+                f"🎉 Canal FREE registrado con ID: {result['channel_id']}. ¡Configuración guardada!\n\n"
+                f"⏰ Configuración de Tiempo de Espera\nPor favor, envía la duración de la espera en minutos (solo números enteros)."
+            )
+    else:
+        await message.reply(f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
+
+
+@admin_router.callback_query(F.data == "protection_on")
+async def setup_protection_on(callback_query: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """Set protection to enabled."""
+    # Toggle VIP content protection on
+    result = await ConfigService.toggle_content_protection(session, "vip", True)
+
+    if result["success"]:
+        # Update the state
+        await state.set_state(AdminOnboardingStates.setup_protection)
+        await state.update_data(need_free_protection=True)
+
+        # Ask about free channel protection
+        keyboard = InlineKeyboardBuilder()
+        keyboard.button(text="✅ Sí", callback_data="protection_free_on")
+        keyboard.button(text="❌ No", callback_data="protection_free_off")
+        keyboard.adjust(2)
+
+        await callback_query.message.edit_text(
+            "¿Activar protección también para el canal FREE?",
+            reply_markup=keyboard.as_markup()
         )
+        await callback_query.answer()
+    else:
+        await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
+
+
+@admin_router.callback_query(F.data == "protection_off")
+async def setup_protection_off(callback_query: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """Set protection to disabled."""
+    # Toggle VIP content protection off
+    result = await ConfigService.toggle_content_protection(session, "vip", False)
+
+    if result["success"]:
+        # Update the state
+        await state.set_state(AdminOnboardingStates.setup_protection)
+        await state.update_data(need_free_protection=True)
+
+        # Ask about free channel protection
+        keyboard = InlineKeyboardBuilder()
+        keyboard.button(text="✅ Sí", callback_data="protection_free_on")
+        keyboard.button(text="❌ No", callback_data="protection_free_off")
+        keyboard.adjust(2)
+
+        await callback_query.message.edit_text(
+            "¿Activar protección para el canal FREE?",
+            reply_markup=keyboard.as_markup()
+        )
+        await callback_query.answer()
+    else:
+        await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
+
+
+@admin_router.callback_query(F.data.in_(["protection_free_on", "protection_free_off"]))
+async def setup_free_protection(callback_query: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """Set free channel protection based on user choice."""
+
+    # Determine if free protection should be enabled
+    enable_free_protection = callback_query.data == "protection_free_on"
+
+    # Toggle FREE content protection
+    result = await ConfigService.toggle_content_protection(session, "free", enable_free_protection)
+
+    if result["success"]:
+        # Continue to next step (welcome message)
+        await state.set_state(AdminOnboardingStates.setup_welcome_msg)
+        await state.update_data(current_step='setup_welcome_msg')
+
+        await callback_query.message.edit_text(
+            "Mensaje de bienvenida\nEnvía el texto que verán los usuarios al dar /start."
+        )
+        await callback_query.answer()
+    else:
+        await callback_query.answer(f"❌ Error: {result['error']}", show_alert=True)
+
+
+@admin_router.message(AdminOnboardingStates.setup_welcome_msg)
+async def process_welcome_message(message: Message, state: FSMContext, session: AsyncSession):
+    """Process the welcome message input during onboarding."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    # Update the welcome message in the config
+    result = await ConfigService.update_welcome_message(session, message.text)
+
+    if result["success"]:
+        # Continue to next step (gamification setup)
+        await state.set_state(AdminOnboardingStates.setup_gamification)
+        await state.update_data(current_step='setup_gamification')
+
+        await message.reply(
+            "Configura los puntos base. En el siguiente mensaje, envía: PuntosDiarios, PuntosReferido\n\nEjemplo: 50, 100"
+        )
+    else:
+        await message.reply(f"❌ Error al guardar el mensaje de bienvenida: {result['error']}")
+
+
+@admin_router.message(AdminOnboardingStates.setup_gamification)
+async def process_gamification_setup(message: Message, state: FSMContext, session: AsyncSession):
+    """Process the gamification settings input during onboarding."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    # Parse the input: expecting format like "50, 100" for daily and referral points
+    try:
+        parts = message.text.replace(" ", "").split(",")
+        if len(parts) != 2:
+            raise ValueError("Formato incorrecto")
+
+        daily_points = int(parts[0])
+        referral_points = int(parts[1])
+
+        # Validate values are positive
+        if daily_points < 0 or referral_points < 0:
+            raise ValueError("Valores deben ser positivos")
+
+        # Update gamification settings in the config
+        result = await ConfigService.update_gamification_settings(
+            session,
+            daily_reward_points=daily_points,
+            referral_reward_points=referral_points
+        )
+
+        if result["success"]:
+            # Continue to next step (wait time setup)
+            await state.set_state(AdminOnboardingStates.setup_wait_time)
+            await state.update_data(current_step='setup_wait_time')
+
+            await message.reply(
+                f"✅ Puntos configurados:\n- Diarios: {daily_points}\n- Referido: {referral_points}\n\n"
+                f"⏰ Configuración de Tiempo de Espera\nPor favor, envía la duración de la espera en minutos (solo números enteros)."
+            )
+        else:
+            await message.reply(f"❌ Error al guardar los puntos: {result['error']}")
+    except (ValueError, IndexError):
+        await message.reply("❌ Formato incorrecto. Por favor, envía dos números separados por coma. Ejemplo: 50, 100")
+
+
+@admin_router.message(AdminOnboardingStates.setup_wait_time)
+async def process_onboard_wait_time(message: Message, state: FSMContext, session: AsyncSession):
+    """Process the wait time input during onboarding."""
+    # Manual admin authentication check
+    user_id = message.from_user.id
+    settings = Settings()
+    if user_id not in settings.admin_ids_list:
+        await message.reply("Acceso denegado")
+        return
+
+    # Call the ConfigService to update wait time
+    result = await ConfigService.update_wait_time(message.text, session)
+
+    if result["success"]:
+        # Continue to next step (create first tier)
+        await state.set_state(AdminOnboardingStates.create_first_tier)
+        await state.update_data(current_step='create_first_tier')
+
+        await message.reply(
+            f"✅ Tiempo de espera actualizado a {result['wait_time_minutes']} minutos.\n\n"
+            f"PASO 1/3: Introduce el nombre de la nueva tarifa (ej: 1 Mes PRO)"
+        )
+    else:
+        # Error: show specific error message from service
+        error = result["error"]
+        await message.reply(f"❌ {error}")
+
+
+@admin_router.message(AdminOnboardingStates.create_first_tier)
+async def process_onboard_tier_name(message: Message, state: FSMContext, session: AsyncSession):
+    """Capture the tier name and ask for the duration."""
+    data = await state.get_data()
+    current_step = data.get('current_step', 'create_first_tier')
+
+    if current_step == 'create_first_tier':
+        # This is the first message (name)
+        await state.update_data(tier_name=message.text)
+        await message.answer("PASO 2/3: Introduce la duración en días (ej: 30)")
+        await state.update_data(current_step='create_first_tier_duration')
+    elif data.get('current_step') == 'create_first_tier_duration':
+        # This is the second message (duration)
+        try:
+            duration_days = int(message.text)
+            await state.update_data(tier_duration=duration_days)
+            await state.update_data(current_step='create_first_tier_price')
+            await message.answer("PASO 3/3: Introduce el precio en USD (ej: 9.99)")
+        except ValueError:
+            await message.answer("Por favor, introduce un número válido para los días.")
+    elif data.get('current_step') == 'create_first_tier_price':
+        # This is the third message (price)
+        try:
+            price_usd = float(message.text)
+            data = await state.get_data()
+
+            # Create the tier
+            tier = await ConfigService.create_tier(
+                session=session,
+                name=data['tier_name'],
+                duration_days=data['tier_duration'],
+                price_usd=price_usd
+            )
+
+            await message.answer(f"✅ Tarifa '{tier.name}' creada con éxito.\n\n🎉 ¡Felicidades! Has completado la configuración inicial del bot.")
+
+            # Clear the state
+            await state.clear()
+
+            # Show the main menu
+            settings = Settings()
+
+            # Prepare main menu options
+            bot = message.bot
+            main_options = await get_main_menu_options(bot, session)
+
+            menu_data = MenuFactory.create_menu(
+                title="Panel de Control A1",
+                options=main_options,
+                back_callback=None,  # Command start doesn't have back button
+                has_main=False   # Command start doesn't have main button (it IS the main)
+            )
+
+            await message.answer(menu_data['text'], reply_markup=menu_data['markup'], parse_mode="MarkdownV2")
+        except ValueError:
+            await message.answer("Por favor, introduce un número válido para el precio (ej: 9.99).")
+        except ServiceError as e:
+            await message.answer(f"❌ Error al crear la tarifa: {e}")
+            await state.clear()
 
 
 @admin_router.message(Command("help"))
