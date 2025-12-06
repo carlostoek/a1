@@ -23,7 +23,7 @@ from bot.database.models import RewardContentFile, RewardContentPack
 from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates, ContentPackCreationStates, RankConfigStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
-from bot.utils.ui import MenuFactory, ReactionCallback
+from bot.utils.ui import MenuFactory, ReactionCallback, escape_markdownv2_text
 
 # Constants
 SUBSCRIBER_PAGE_SIZE = 5
@@ -38,8 +38,9 @@ async def safe_edit_message(callback_query: CallbackQuery, text: str, reply_mark
     """
     Safely edit a message, handling the 'message is not modified' error.
     """
+    escaped_text = escape_markdownv2_text(text)
     try:
-        await callback_query.message.edit_text(text, reply_markup=reply_markup, parse_mode="MarkdownV2")
+        await callback_query.message.edit_text(escaped_text, reply_markup=reply_markup, parse_mode="MarkdownV2")
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             # If the message hasn't changed, just answer the callback
@@ -47,6 +48,27 @@ async def safe_edit_message(callback_query: CallbackQuery, text: str, reply_mark
         else:
             # If it's a different error, raise it
             raise e
+
+async def safe_send_message(message_obj: Message, text: str, reply_markup=None):
+    """
+    Safely send a message with proper MarkdownV2 escaping.
+    """
+    escaped_text = escape_markdownv2_text(text)
+    return await message_obj.reply(escaped_text, reply_markup=reply_markup, parse_mode="MarkdownV2")
+
+async def safe_send_direct(bot: Bot, chat_id: int, text: str, reply_markup=None):
+    """
+    Safely send a direct message with proper MarkdownV2 escaping.
+    """
+    escaped_text = escape_markdownv2_text(text)
+    return await bot.send_message(chat_id, escaped_text, reply_markup=reply_markup, parse_mode="MarkdownV2")
+
+async def safe_callback_answer(callback_query: CallbackQuery, text: str, show_alert: bool = False):
+    """
+    Safely answer a callback query with proper MarkdownV2 escaping (if needed).
+    """
+    escaped_text = escape_markdownv2_text(text)
+    await callback_query.answer(escaped_text, show_alert=show_alert)
 
 def get_main_menu_kb():
     """Generate main menu keyboard with buttons: [Gestión VIP, Gestión Free, Config, Stats]"""
@@ -157,10 +179,10 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
                 tier = result["tier"]
                 await SubscriptionService.send_token_redemption_success(message, tier, session)
             else:
-                await message.reply(f"❌ Error al canjear el token: {result['error']}")
+                await safe_send_message(message, f"❌ Error al canjear el token: {result['error']}")
 
         except SubscriptionError as e:
-            await message.reply(f"❌ Ocurrió un error inesperado: {e}")
+            await safe_send_message(message, f"❌ Ocurrió un error inesperado: {e}")
 
     elif is_admin:
         # Admin menu flow - use the same dynamic channel naming as the callback handler
@@ -668,15 +690,15 @@ async def process_wait_time_input(message: Message, state: FSMContext, session: 
         # Success: show new value
         new_value = result["wait_time_minutes"]
         response_text = f"✅ Tiempo de espera actualizado a {new_value} minutos. Las nuevas solicitudes lo usarán inmediatamente."
-        await message.reply(response_text)
+        await safe_send_message(message, response_text)
 
         # Acknowledge completion after success
-        await message.reply("Regresando al menú principal para continuar.")
+        await safe_send_message(message, "Regresando al menú principal para continuar.")
     else:
         # Error: show specific error message from service
         error = result["error"]
         response_text = f"❌ {error}"
-        await message.reply(response_text)
+        await safe_send_message(message, response_text)
 
     # Clear the state
     await state.clear()
@@ -737,7 +759,8 @@ async def receive_post_content(message: Message, state: FSMContext, session: Asy
         keyboard.button(text="❌ No", callback_data="post_react_no")
         keyboard.adjust(2)  # 2 buttons per row
 
-        await message.reply(
+        await safe_send_message(
+            message,
             "💋 Reacciones Detectadas\n¿Deseas añadir los botones de reacción a esta publicación?",
             reply_markup=keyboard.as_markup()
         )
@@ -817,7 +840,8 @@ async def generate_preview(context, state: FSMContext, session: AsyncSession, bo
     keyboard.button(text="❌ Cancelar", callback_data="cancel_send")
     keyboard.adjust(2)
 
-    await bot.send_message(
+    await safe_send_direct(
+        bot,
         admin_chat_id,
         "¿Enviar esta publicación?",
         reply_markup=keyboard.as_markup()
@@ -1438,9 +1462,13 @@ async def process_channel_input(message: Message, state: FSMContext, session: As
     if result["success"]:
         type_name = "VIP" if channel_type == "vip" else "Free"
         response_text = f"🎉 Canal {type_name} registrado con ID: {result['channel_id']}. ¡Configuración guardada!"
-        await message.reply(response_text)
+        from bot.utils.ui import escape_markdownv2_text
+        escaped_text = escape_markdownv2_text(response_text)
+        await message.reply(escaped_text, parse_mode="MarkdownV2")
     else:
-        await message.reply(f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
+        from bot.utils.ui import escape_markdownv2_text
+        escaped_text = escape_markdownv2_text(f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
+        await message.reply(escaped_text, parse_mode="MarkdownV2")
 
     # Clear the state
     await state.clear()
@@ -1615,7 +1643,8 @@ async def start_pack_creation(callback_query: CallbackQuery, state: FSMContext):
 
     # Ask for pack name
     await callback_query.message.edit_text(
-        "📦 **Creación de Pack de Contenido**\n\nPonle un nombre único a este Pack de Contenido:"
+        escape_markdownv2_text("📦 **Creación de Pack de Contenido**\n\nPonle un nombre único a este Pack de Contenido:"),
+        parse_mode="MarkdownV2"
     )
 
     # Answer the callback
@@ -1675,7 +1704,7 @@ async def finish_pack_creation(callback_query: CallbackQuery, state: FSMContext,
     return_context = data.get("return_context")
 
     # Inform the user
-    await callback_query.answer("✅ Pack creado y guardado exitosamente", show_alert=True)
+    await safe_callback_answer(callback_query, "✅ Pack creado y guardado exitosamente", show_alert=True)
 
     # Check if we have a return context
     if return_context:
