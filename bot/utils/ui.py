@@ -85,7 +85,7 @@ class MenuFactory:
 
         # Retorno estandarizado
         escaped_title = escape_markdownv2_text(title.upper())
-        menu_text = f"**{escaped_title}**\n\nSelecciona una opción:"
+        menu_text = f"*{escaped_title}*\n\nSelecciona una opción:"
         if description:
             escaped_description = escape_markdownv2_text(description)
             menu_text = f"{escaped_description}\n\n{menu_text}"

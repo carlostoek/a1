@@ -25,6 +25,32 @@ from bot.config import Settings
 from datetime import datetime, timedelta, timezone
 from bot.utils.ui import MenuFactory, ReactionCallback, escape_markdownv2_text
 
+
+async def get_channel_name(bot, channel_id, channel_type, default_suffix=None):
+    """
+    Helper function to retrieve channel name with error handling.
+
+    Args:
+        bot: Bot instance to call get_chat
+        channel_id: Channel ID to retrieve info for
+        channel_type: Type of channel ('vip' or 'free')
+        default_suffix: Optional default suffix name if channel info can't be retrieved
+
+    Returns:
+        Tuple of (formatted_channel_text, channel_name_or_status)
+    """
+    try:
+        # Get channel info from Telegram using the bot
+        chat = await bot.get_chat(chat_id=channel_id)
+        # Use the channel title if available, otherwise use a default
+        channel_name = chat.title if chat.title else f"{channel_type.title()}-{channel_id}" if default_suffix is None else default_suffix
+        formatted_text = f"💎 {channel_name}" if channel_type.lower() == 'vip' else f"💬 {channel_name}"
+        return formatted_text, channel_name
+    except Exception:
+        # If there's an error getting the channel info, just show the configured status
+        status_text = f"💎 {channel_type.title()} Configurado" if channel_type.lower() == 'vip' else f"💬 {channel_type.title()} Configurado"
+        return status_text, None
+
 # Constants
 SUBSCRIBER_PAGE_SIZE = 5
 
@@ -269,26 +295,10 @@ async def get_main_menu_options(bot, session: AsyncSession):
 
     # Try to get the actual channel names if configured
     if config.vip_channel_id:
-        try:
-            # Get channel info from Telegram using the bot
-            chat = await bot.get_chat(chat_id=config.vip_channel_id)
-            # Use the channel title if available, otherwise use the ID
-            channel_name = chat.title if chat.title else f"VIP-{config.vip_channel_id}"
-            vip_menu_text = f"💎 {channel_name}"
-        except Exception:
-            # If there's an error getting the channel info, just show the configured status
-            vip_menu_text = f"💎 VIP Configurado"
+        vip_menu_text, _ = await get_channel_name(bot, config.vip_channel_id, 'vip')
 
     if config.free_channel_id:
-        try:
-            # Get channel info from Telegram using the bot
-            chat = await bot.get_chat(chat_id=config.free_channel_id)
-            # Use the channel title if available, otherwise use the ID
-            channel_name = chat.title if chat.title else f"Free-{config.free_channel_id}"
-            free_menu_text = f"💬 {channel_name}"
-        except Exception:
-            # If there's an error getting the channel info, just show the configured status
-            free_menu_text = f"💬 Free Configurado"
+        free_menu_text, _ = await get_channel_name(bot, config.free_channel_id, 'free')
 
     # Define main menu options according to specification
     main_options = [
@@ -332,14 +342,10 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     # Set the title based on whether channel is configured
     title = "DASHBOARD VIP"
     if config.vip_channel_id:
-        try:
-            # Get channel info from Telegram using the bot
-            chat = await callback_query.bot.get_chat(chat_id=config.vip_channel_id)
-            # Use the channel title if available, otherwise use the ID
-            channel_name = chat.title if chat.title else f"VIP Channel"
+        _, channel_name = await get_channel_name(callback_query.bot, config.vip_channel_id, 'vip', 'VIP Channel')
+        if channel_name:
             title = f"DASHBOARD {channel_name}"
-        except Exception:
-            # If there's an error getting the channel info, just show the configured status
+        else:
             title = f"DASHBOARD VIP (Configurado)"
 
     # Build VIP menu options according to specification with sections
@@ -390,14 +396,10 @@ async def admin_free(callback_query: CallbackQuery, session: AsyncSession):
     # Set the title based on whether channel is configured
     title = "DASHBOARD FREE"
     if config.free_channel_id:
-        try:
-            # Get channel info from Telegram using the bot
-            chat = await callback_query.bot.get_chat(chat_id=config.free_channel_id)
-            # Use the channel title if available, otherwise use the ID
-            channel_name = chat.title if chat.title else f"Free Channel"
+        _, channel_name = await get_channel_name(callback_query.bot, config.free_channel_id, 'free', 'Free Channel')
+        if channel_name:
             title = f"DASHBOARD {channel_name}"
-        except Exception:
-            # If there's an error getting the channel info, just show the configured status
+        else:
             title = f"DASHBOARD FREE (Configurado)"
 
     # Definir opciones del menú FREE según especificación con secciones
@@ -1462,13 +1464,9 @@ async def process_channel_input(message: Message, state: FSMContext, session: As
     if result["success"]:
         type_name = "VIP" if channel_type == "vip" else "Free"
         response_text = f"🎉 Canal {type_name} registrado con ID: {result['channel_id']}. ¡Configuración guardada!"
-        from bot.utils.ui import escape_markdownv2_text
-        escaped_text = escape_markdownv2_text(response_text)
-        await message.reply(escaped_text, parse_mode="MarkdownV2")
+        await safe_send_message(message, response_text)
     else:
-        from bot.utils.ui import escape_markdownv2_text
-        escaped_text = escape_markdownv2_text(f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
-        await message.reply(escaped_text, parse_mode="MarkdownV2")
+        await safe_send_message(message, f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
 
     # Clear the state
     await state.clear()
@@ -1642,10 +1640,11 @@ async def start_pack_creation(callback_query: CallbackQuery, state: FSMContext):
     await state.set_state(ContentPackCreationStates.waiting_pack_name)
 
     # Ask for pack name
-    await callback_query.message.edit_text(
-        escape_markdownv2_text("📦 **Creación de Pack de Contenido**\n\nPonle un nombre único a este Pack de Contenido:"),
-        parse_mode="MarkdownV2"
-    )
+    # Properly escape content while preserving desired formatting
+    content_part = escape_markdownv2_text("Creación de Pack de Contenido")
+    other_part = escape_markdownv2_text("Ponle un nombre único a este Pack de Contenido:")
+    final_text = f"📦 *{content_part}*\n\n{other_part}"
+    await callback_query.message.edit_text(final_text, parse_mode="MarkdownV2")
 
     # Answer the callback
     await callback_query.answer()
