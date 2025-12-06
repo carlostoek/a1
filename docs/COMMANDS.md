@@ -7,17 +7,28 @@
 **Descripción**: Comando principal para interactuar con el bot. Puede usarse para:
 - Iniciar una conversación con el bot
 - Canjear un token de suscripción VIP
+- Iniciar el proceso de configuración inicial (onboarding) para administradores nuevos
+- Procesar enlaces de referidos (formato `ref_...`)
 
 **Flujo**:
-1. Si no se proporciona token: Muestra mensaje de bienvenida
+1. Si se proporciona un payload de referido (`ref_...`): Procesa la referida independientemente del resto del flujo
 2. Si se proporciona token: Intenta canjear el token VIP
    - Si es válido: Activa la suscripción VIP y envía enlace al canal VIP
    - Si es inválido: Muestra mensaje de error
+3. Si es un administrador y es la primera vez que accede (no hay canales configurados): Inicia el flujo de onboarding
+   - Presenta opciones de configuración rápida o completa
+   - Guía al administrador a través del proceso de configuración inicial
+4. Si no es administrador o ya está todo configurado: Muestra mensaje de bienvenida configurado
+
+**Opciones de Onboarding**:
+- **Configuración Rápida**: Configura canales y crea una tarifa básica
+- **Configuración Completa**: Configura canales, protección de contenido, mensaje de bienvenida, puntos de gamificación y tarifa
 
 **Ejemplo de uso**:
 ```
 /start
 /start a1b2c3d4-e5f6-7890-1234-567890abcdef
+/start ref_12345
 ```
 
 ### `/free`

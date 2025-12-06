@@ -481,6 +481,36 @@ Gestiona la configuración global del bot con caché en memoria.
     - `channel_type` ("vip" o "free")
   - **Retorna**: booleano indicando si la protección está activada
 
+- **update_gamification_settings(session, daily_reward_points=None, referral_reward_points=None)**
+  - Actualiza la configuración de recompensas de gamificación (puntos diarios y por referidos)
+  - **Parámetros**:
+    - `session` (sesión de base de datos)
+    - `daily_reward_points` (int, opcional): Nuevos puntos para recompensa diaria (si se proporciona)
+    - `referral_reward_points` (int, opcional): Nuevos puntos para recompensa por referidos (si se proporciona)
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,                    # Indica si la operación fue exitosa
+      "daily_reward_points": int,           # Puntos diarios configurados actualmente
+      "referral_reward_points": int,        # Puntos por referidos configurados actualmente
+      "error": string (opcional)            # Mensaje de error (si falló)
+    }
+    ```
+
+- **update_welcome_message(session, welcome_message)**
+  - Actualiza el mensaje de bienvenida que ven los usuarios al usar /start
+  - **Parámetros**:
+    - `session` (sesión de base de datos)
+    - `welcome_message` (str): Nuevo texto del mensaje de bienvenida
+  - **Retorna**:
+    ```python
+    {
+      "success": boolean,                   # Indica si la operación fue exitosa
+      "welcome_message": string,            # Mensaje de bienvenida configurado actualmente
+      "error": string (opcional)            # Mensaje de error (si falló)
+    }
+    ```
+
 ### StatsService
 
 Gestiona las estadísticas generales, VIP y del canal gratuito del bot.
