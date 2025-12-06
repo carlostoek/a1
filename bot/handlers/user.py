@@ -3,7 +3,7 @@ User handlers for the Telegram Admin Bot.
 Handles user interactions like token redemption and free channel access.
 """
 import re
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message
 from datetime import datetime, timezone, timedelta
 from aiogram.filters import Command
@@ -12,6 +12,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.channel_service import ChannelManagementService
 from bot.services.config_service import ConfigService
 from bot.database.models import GamificationProfile
+from bot.services.dependency_injection import Services
 
 # Regular expression patterns compiled once at module level for efficiency
 _UUID_PATTERN = re.compile(r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$')

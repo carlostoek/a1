@@ -5,12 +5,30 @@ Contains standardized components for creating menus and UI elements.
 from typing import List, Tuple, Dict, Any, Optional
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters.callback_data import CallbackData
+import re
 
 
 class ReactionCallback(CallbackData, prefix="react"):
     """Callback data for reaction buttons"""
     channel_type: str
     emoji: str
+
+def escape_markdownv2_text(text: str) -> str:
+    """
+    Escapes special characters in text for MarkdownV2 formatting.
+
+    Args:
+        text: The text to escape
+
+    Returns:
+        Escaped text safe for MarkdownV2
+    """
+    # List of special characters that need escaping in MarkdownV2
+    special_chars = r'([_*\[\]()~`>#+\-=|{}.!\\])'
+    # Replace each special character with its escaped version
+    escaped_text = re.sub(special_chars, r'\\\1', text)
+    return escaped_text
+
 
 class MenuFactory:
     """
@@ -66,9 +84,11 @@ class MenuFactory:
             keyboard.append(nav_row)
 
         # Retorno estandarizado
-        menu_text = f"**{title.upper()}**\n\nSelecciona una opción:"
+        escaped_title = escape_markdownv2_text(title.upper())
+        menu_text = f"*{escaped_title}*\n\nSelecciona una opción:"
         if description:
-            menu_text = f"{description}\n\n{menu_text}"
+            escaped_description = escape_markdownv2_text(description)
+            menu_text = f"{escaped_description}\n\n{menu_text}"
 
         return {
             'text': menu_text,

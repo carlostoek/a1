@@ -23,7 +23,33 @@ from bot.database.models import RewardContentFile, RewardContentPack
 from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates, ContentPackCreationStates, RankConfigStates
 from bot.config import Settings
 from datetime import datetime, timedelta, timezone
-from bot.utils.ui import MenuFactory, ReactionCallback
+from bot.utils.ui import MenuFactory, ReactionCallback, escape_markdownv2_text
+
+
+async def get_channel_name(bot, channel_id, channel_type, default_suffix=None):
+    """
+    Helper function to retrieve channel name with error handling.
+
+    Args:
+        bot: Bot instance to call get_chat
+        channel_id: Channel ID to retrieve info for
+        channel_type: Type of channel ('vip' or 'free')
+        default_suffix: Optional default suffix name if channel info can't be retrieved
+
+    Returns:
+        Tuple of (formatted_channel_text, channel_name_or_status)
+    """
+    try:
+        # Get channel info from Telegram using the bot
+        chat = await bot.get_chat(chat_id=channel_id)
+        # Use the channel title if available, otherwise use a default
+        channel_name = chat.title if chat.title else f"{channel_type.title()}-{channel_id}" if default_suffix is None else default_suffix
+        formatted_text = f"💎 {channel_name}" if channel_type.lower() == 'vip' else f"💬 {channel_name}"
+        return formatted_text, channel_name
+    except Exception:
+        # If there's an error getting the channel info, just show the configured status
+        status_text = f"💎 {channel_type.title()} Configurado" if channel_type.lower() == 'vip' else f"💬 {channel_type.title()} Configurado"
+        return status_text, None
 
 # Constants
 SUBSCRIBER_PAGE_SIZE = 5
@@ -38,8 +64,9 @@ async def safe_edit_message(callback_query: CallbackQuery, text: str, reply_mark
     """
     Safely edit a message, handling the 'message is not modified' error.
     """
+    escaped_text = escape_markdownv2_text(text)
     try:
-        await callback_query.message.edit_text(text, reply_markup=reply_markup)
+        await callback_query.message.edit_text(escaped_text, reply_markup=reply_markup, parse_mode="MarkdownV2")
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             # If the message hasn't changed, just answer the callback
@@ -47,6 +74,27 @@ async def safe_edit_message(callback_query: CallbackQuery, text: str, reply_mark
         else:
             # If it's a different error, raise it
             raise e
+
+async def safe_send_message(message_obj: Message, text: str, reply_markup=None):
+    """
+    Safely send a message with proper MarkdownV2 escaping.
+    """
+    escaped_text = escape_markdownv2_text(text)
+    return await message_obj.reply(escaped_text, reply_markup=reply_markup, parse_mode="MarkdownV2")
+
+async def safe_send_direct(bot: Bot, chat_id: int, text: str, reply_markup=None):
+    """
+    Safely send a direct message with proper MarkdownV2 escaping.
+    """
+    escaped_text = escape_markdownv2_text(text)
+    return await bot.send_message(chat_id, escaped_text, reply_markup=reply_markup, parse_mode="MarkdownV2")
+
+async def safe_callback_answer(callback_query: CallbackQuery, text: str, show_alert: bool = False):
+    """
+    Safely answer a callback query with proper MarkdownV2 escaping (if needed).
+    """
+    escaped_text = escape_markdownv2_text(text)
+    await callback_query.answer(escaped_text, show_alert=show_alert)
 
 def get_main_menu_kb():
     """Generate main menu keyboard with buttons: [Gestión VIP, Gestión Free, Config, Stats]"""
@@ -157,23 +205,18 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
                 tier = result["tier"]
                 await SubscriptionService.send_token_redemption_success(message, tier, session)
             else:
-                await message.reply(f"❌ Error al canjear el token: {result['error']}")
+                await safe_send_message(message, f"❌ Error al canjear el token: {result['error']}")
 
         except SubscriptionError as e:
-            await message.reply(f"❌ Ocurrió un error inesperado: {e}")
+            await safe_send_message(message, f"❌ Ocurrió un error inesperado: {e}")
 
     elif is_admin:
-        # Admin menu flow
+        # Admin menu flow - use the same dynamic channel naming as the callback handler
+        main_options = await get_main_menu_options(message.bot, session)
+
         welcome_text = "Bienvenido al Panel de Administración del Bot."
 
         # Use MenuFactory for consistency
-        main_options = [
-            ("💎 **Gestión VIP**", "admin_vip"),
-            ("💬 **Gestión Free**", "admin_free"),
-            ("📊 **Centro de Reportes**", "admin_stats"),
-            ("⚙️ **Diagnóstico y Config**", "admin_config"),
-        ]
-
         menu_data = MenuFactory.create_menu(
             title="Panel de Control A1",
             options=main_options,
@@ -182,7 +225,7 @@ async def cmd_admin(message: Message, command: CommandObject, session: AsyncSess
             has_main=False   # Command start doesn't have main button (it IS the main)
         )
 
-        await message.answer(menu_data['text'], reply_markup=menu_data['markup'])
+        await message.answer(menu_data['text'], reply_markup=menu_data['markup'], parse_mode="MarkdownV2")
 
     else:
         # Generic user welcome
@@ -231,16 +274,48 @@ async def cmd_help(message: Message):
 
 
 # Navigation callback handlers
-@admin_router.callback_query(F.data == "admin_main_menu")
-async def admin_main_menu(callback_query: CallbackQuery):
-    """Edit message to show main menu using MenuFactory."""
+async def get_main_menu_options(bot, session: AsyncSession):
+    """
+    Helper function to generate main menu options with dynamic channel names.
+
+    Args:
+        bot: Bot instance to get channel info
+        session: Database session to get config
+
+    Returns:
+        List of tuples containing (text, callback_data) for menu options
+    """
+    # Get the bot configuration to check if channels are configured
+    config = await ConfigService.get_bot_config(session)
+
+    # Get channel information for VIP and Free channels
+    # Default button text (without bold formatting for buttons as they don't support it)
+    vip_menu_text = "💎 Gestión VIP"
+    free_menu_text = "💬 Gestión Free"
+
+    # Try to get the actual channel names if configured
+    if config.vip_channel_id:
+        vip_menu_text, _ = await get_channel_name(bot, config.vip_channel_id, 'vip')
+
+    if config.free_channel_id:
+        free_menu_text, _ = await get_channel_name(bot, config.free_channel_id, 'free')
+
     # Define main menu options according to specification
     main_options = [
-        ("💎 **Gestión VIP**", "admin_vip"),
-        ("💬 **Gestión Free**", "admin_free"),
-        ("📊 **Centro de Reportes**", "admin_stats"),
-        ("⚙️ **Diagnóstico y Config**", "admin_config"),
+        (vip_menu_text, "admin_vip"),
+        (free_menu_text, "admin_free"),
+        ("📊 Centro de Reportes", "admin_stats"),
+        ("⚙️ Diagnóstico y Config", "admin_config"),
     ]
+
+    return main_options
+
+
+@admin_router.callback_query(F.data == "admin_main_menu")
+async def admin_main_menu(callback_query: CallbackQuery, session: AsyncSession, services: Services):
+    """Edit message to show main menu using MenuFactory."""
+    # Get main menu options with dynamic channel names
+    main_options = await get_main_menu_options(callback_query.bot, session)
 
     # Generate menu using factory
     menu_data = MenuFactory.create_menu(
@@ -260,6 +335,18 @@ async def admin_main_menu(callback_query: CallbackQuery):
 async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     """Edit message to show VIP menu using MenuFactory."""
     tiers = await ConfigService.get_all_tiers(session)
+
+    # Get the bot configuration to get channel info
+    config = await ConfigService.get_bot_config(session)
+
+    # Set the title based on whether channel is configured
+    title = "DASHBOARD VIP"
+    if config.vip_channel_id:
+        _, channel_name = await get_channel_name(callback_query.bot, config.vip_channel_id, 'vip', 'VIP Channel')
+        if channel_name:
+            title = f"DASHBOARD {channel_name}"
+        else:
+            title = f"DASHBOARD VIP (Configurado)"
 
     # Build VIP menu options according to specification with sections
     options = [
@@ -287,7 +374,7 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         description = "❌ No hay tarifas de suscripción activas. Por favor, configure una tarifa primero."
 
     menu_data = MenuFactory.create_menu(
-        title="DASHBOARD VIP",
+        title=title,
         options=options,
         description=description,
         back_callback="admin_main_menu",
@@ -301,8 +388,20 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
     )
 
 @admin_router.callback_query(F.data == "admin_free")
-async def admin_free(callback_query: CallbackQuery):
+async def admin_free(callback_query: CallbackQuery, session: AsyncSession):
     """Edit message to show Free menu using MenuFactory."""
+    # Get the bot configuration to get channel info
+    config = await ConfigService.get_bot_config(session)
+
+    # Set the title based on whether channel is configured
+    title = "DASHBOARD FREE"
+    if config.free_channel_id:
+        _, channel_name = await get_channel_name(callback_query.bot, config.free_channel_id, 'free', 'Free Channel')
+        if channel_name:
+            title = f"DASHBOARD {channel_name}"
+        else:
+            title = f"DASHBOARD FREE (Configurado)"
+
     # Definir opciones del menú FREE según especificación con secciones
     free_options = [
         # -- SALA DE ESPERA --
@@ -320,7 +419,7 @@ async def admin_free(callback_query: CallbackQuery):
     ]
 
     menu_data = MenuFactory.create_menu(
-        title="DASHBOARD FREE",
+        title=title,
         options=free_options,
         back_callback="admin_main_menu",
         has_main=True
@@ -593,15 +692,15 @@ async def process_wait_time_input(message: Message, state: FSMContext, session: 
         # Success: show new value
         new_value = result["wait_time_minutes"]
         response_text = f"✅ Tiempo de espera actualizado a {new_value} minutos. Las nuevas solicitudes lo usarán inmediatamente."
-        await message.reply(response_text)
+        await safe_send_message(message, response_text)
 
         # Acknowledge completion after success
-        await message.reply("Regresando al menú principal para continuar.")
+        await safe_send_message(message, "Regresando al menú principal para continuar.")
     else:
         # Error: show specific error message from service
         error = result["error"]
         response_text = f"❌ {error}"
-        await message.reply(response_text)
+        await safe_send_message(message, response_text)
 
     # Clear the state
     await state.clear()
@@ -662,7 +761,8 @@ async def receive_post_content(message: Message, state: FSMContext, session: Asy
         keyboard.button(text="❌ No", callback_data="post_react_no")
         keyboard.adjust(2)  # 2 buttons per row
 
-        await message.reply(
+        await safe_send_message(
+            message,
             "💋 Reacciones Detectadas\n¿Deseas añadir los botones de reacción a esta publicación?",
             reply_markup=keyboard.as_markup()
         )
@@ -742,7 +842,8 @@ async def generate_preview(context, state: FSMContext, session: AsyncSession, bo
     keyboard.button(text="❌ Cancelar", callback_data="cancel_send")
     keyboard.adjust(2)
 
-    await bot.send_message(
+    await safe_send_direct(
+        bot,
         admin_chat_id,
         "¿Enviar esta publicación?",
         reply_markup=keyboard.as_markup()
@@ -1363,9 +1464,9 @@ async def process_channel_input(message: Message, state: FSMContext, session: As
     if result["success"]:
         type_name = "VIP" if channel_type == "vip" else "Free"
         response_text = f"🎉 Canal {type_name} registrado con ID: {result['channel_id']}. ¡Configuración guardada!"
-        await message.reply(response_text)
+        await safe_send_message(message, response_text)
     else:
-        await message.reply(f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
+        await safe_send_message(message, f"❌ Error al registrar el canal. Razón: {result['error']}. ¿El bot es administrador en ese canal?")
 
     # Clear the state
     await state.clear()
@@ -1539,9 +1640,11 @@ async def start_pack_creation(callback_query: CallbackQuery, state: FSMContext):
     await state.set_state(ContentPackCreationStates.waiting_pack_name)
 
     # Ask for pack name
-    await callback_query.message.edit_text(
-        "📦 **Creación de Pack de Contenido**\n\nPonle un nombre único a este Pack de Contenido:"
-    )
+    # Properly escape content while preserving desired formatting
+    content_part = escape_markdownv2_text("Creación de Pack de Contenido")
+    other_part = escape_markdownv2_text("Ponle un nombre único a este Pack de Contenido:")
+    final_text = f"📦 *{content_part}*\n\n{other_part}"
+    await callback_query.message.edit_text(final_text, parse_mode="MarkdownV2")
 
     # Answer the callback
     await callback_query.answer()
@@ -1600,7 +1703,7 @@ async def finish_pack_creation(callback_query: CallbackQuery, state: FSMContext,
     return_context = data.get("return_context")
 
     # Inform the user
-    await callback_query.answer("✅ Pack creado y guardado exitosamente", show_alert=True)
+    await safe_callback_answer(callback_query, "✅ Pack creado y guardado exitosamente", show_alert=True)
 
     # Check if we have a return context
     if return_context:
