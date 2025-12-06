@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 from bot.database.base import Base
 from bot.database import models  # Import models to register them with Base metadata
 from bot.services.dependency_injection import ServiceContainer
+from bot.services.gamification_service import GamificationService
 
 
 @pytest.fixture
@@ -47,26 +48,35 @@ async def db_session():
 
 
 @pytest_asyncio.fixture
+async def base_rank(db_session):
+    """Create a base rank for testing."""
+    from bot.database.models import Rank
+    base_rank = Rank(
+        name="Bronze",
+        min_points=0,
+        reward_description="Base rank"
+    )
+    db_session.add(base_rank)
+    await db_session.commit()
+    await db_session.refresh(base_rank)
+    return base_rank
+
+
+@pytest_asyncio.fixture
 async def services(mock_bot, db_session):
     """Create a ServiceContainer with mock bot and test database session."""
     # Create a mock session maker that returns our test session
     async def session_maker():
         return db_session
-    
+
     # Create service container with mocked dependencies
     container = ServiceContainer(bot=mock_bot)
-    
-    # Override the gamification service to use our test session
-    from bot.services.gamification_service import GamificationService
-    from bot.services.event_bus import EventBus
-    from bot.services.notification_service import NotificationService
-    from bot.services.subscription_service import SubscriptionService
-    
-    # Create test instances with our mocks
-    event_bus = EventBus()
-    notification_service = NotificationService(bot=mock_bot)
-    subscription_service = SubscriptionService()
-    
+
+    # Reuse the container's event bus to ensure proper event handling
+    event_bus = container.bus
+    notification_service = container.notify
+    subscription_service = container.subs
+
     # Create a new gamification service with test dependencies
     gamification_service = GamificationService(
         session_maker=session_maker,
@@ -75,8 +85,11 @@ async def services(mock_bot, db_session):
         subscription_service=subscription_service,
         bot=mock_bot
     )
-    
+
+    # Setup listeners for the new gamification service instance
+    gamification_service.setup_listeners()
+
     # Replace the gamification service in the container
     container._gamification_service = gamification_service
-    
+
     return container

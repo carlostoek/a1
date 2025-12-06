@@ -134,10 +134,10 @@ Addresses review comments by @{reviewer}"
 
 ## GITHUB API COMMANDS
 Use these exact URLs with the web_fetch tool:
-- PR info: https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}
-- PR reviews: https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews
-- PR comments: https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments
-- PR files: https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files
+- PR info: https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}
+- PR reviews: https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/reviews
+- PR comments: https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/comments
+- PR files: https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/files
 
 ## VALIDATION CHECKLIST
 Before generating the final report, verify:

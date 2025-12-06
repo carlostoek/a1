@@ -74,11 +74,7 @@ def run_full_test_suite():
     print("🧪 EXECUTING FULL TEST SUITE")
     print("="*60)
     print()
-    
-    # Change to the project directory
-    project_dir = Path(__file__).parent.absolute()
-    os.chdir(project_dir)
-    
+
     print("📋 Running all tests in the project...")
     print()
     
