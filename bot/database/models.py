@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlalchemy import Integer, BigInteger, String, DateTime, Boolean, JSON, ForeignKey, Index, Float
+from sqlalchemy import Integer, BigInteger, String, DateTime, Boolean, JSON, ForeignKey, Index, Float, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, timezone
 from .base import Base
@@ -17,6 +17,16 @@ class BotConfig(Base):
     subscription_fees: Mapped[dict] = mapped_column(JSON, default=dict)
     vip_content_protection: Mapped[bool] = mapped_column(default=False)
     free_content_protection: Mapped[bool] = mapped_column(default=False)
+
+    # Content
+    welcome_message: Mapped[str] = mapped_column(Text, default="¡Bienvenido al Bot Oficial! 🚀\nUsa /daily para tu recompensa.")
+
+    # Gamification (Variables Globales)
+    daily_reward_points: Mapped[int] = mapped_column(Integer, default=50)
+    referral_reward_points: Mapped[int] = mapped_column(Integer, default=100)  # Puntos para quien invita
+
+    # Seguridad
+    content_protection_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class UserSubscription(Base):

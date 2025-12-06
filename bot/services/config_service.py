@@ -402,3 +402,73 @@ class ConfigService:
             return config.free_content_protection
         else:
             return False
+
+    @classmethod
+    async def update_gamification_settings(cls, session: AsyncSession, daily_reward_points: Optional[int] = None, referral_reward_points: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Update gamification settings (daily and referral rewards).
+
+        Args:
+            session: Database session
+            daily_reward_points: New daily reward points (if provided)
+            referral_reward_points: New referral reward points (if provided)
+
+        Returns:
+            Dictionary with updated settings
+        """
+        try:
+            config = await cls.get_bot_config(session)
+
+            if daily_reward_points is not None:
+                config.daily_reward_points = daily_reward_points
+
+            if referral_reward_points is not None:
+                config.referral_reward_points = referral_reward_points
+
+            await session.commit()
+
+            # Update the cached config
+            cls._config_cache = config
+
+            return {
+                "success": True,
+                "daily_reward_points": config.daily_reward_points,
+                "referral_reward_points": config.referral_reward_points
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Error updating gamification settings: {str(e)}"
+            }
+
+    @classmethod
+    async def update_welcome_message(cls, session: AsyncSession, welcome_message: str) -> Dict[str, Any]:
+        """
+        Update the welcome message.
+
+        Args:
+            session: Database session
+            welcome_message: New welcome message text
+
+        Returns:
+            Dictionary with operation result
+        """
+        try:
+            config = await cls.get_bot_config(session)
+            config.welcome_message = welcome_message
+            await session.commit()
+
+            # Update the cached config
+            cls._config_cache = config
+
+            return {
+                "success": True,
+                "welcome_message": config.welcome_message
+            }
+        except SQLAlchemyError as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "error": f"Error updating welcome message: {str(e)}"
+            }
