@@ -3,6 +3,7 @@ from bot.wizards.validators import CommonValidators
 from bot.wizards.ui_renderer import WizardUIRenderer
 from typing import List, Optional
 from aiogram.types import InlineKeyboardMarkup
+from bot.services.gamification_service import GamificationService
 
 
 class RankWizard(BaseWizard):
@@ -43,7 +44,6 @@ class RankWizard(BaseWizard):
     async def on_complete(self, context: WizardContext, session):
         # Lógica final de guardado en BD usando GamificationService
         # The services will be passed in context or retrieved from a global service container
-        from bot.services.gamification_service import GamificationService
 
         # Extract the data from context
         name = context.data.get('name')

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from bot.wizards.core import BaseWizard, WizardContext, WizardStep
+from bot.services.gamification_service import GamificationService
 
 
 class WizardStates(StatesGroup):
@@ -12,6 +13,18 @@ class WizardStates(StatesGroup):
 class WizardService:
     def __init__(self):
         self.active_wizards: Dict[int, WizardContext] = {}  # user_id -> context
+        # Register wizard classes for lookup
+        self.wizard_registry: Dict[str, Type[BaseWizard]] = {}
+        self._register_default_wizards()
+
+    def _register_default_wizards(self):
+        """Register default wizards in the system."""
+        from bot.wizards.rank_wizard import RankWizard
+        self.wizard_registry["RankWizard"] = RankWizard
+
+    def register_wizard(self, name: str, wizard_class: Type[BaseWizard]):
+        """Register a new wizard in the system."""
+        self.wizard_registry[name] = wizard_class
 
     async def start_wizard(self, user_id: int, wizard_class: Type[BaseWizard],
                           fsm_context: FSMContext, return_context: Optional[dict] = None, services: Optional[Any] = None):
@@ -102,13 +115,10 @@ class WizardService:
         return {"text": message_text, "keyboard": keyboard}
 
     def _get_wizard_instance_by_id(self, wizard_id: str) -> Optional[BaseWizard]:
-        """Helper to get wizard instance by ID."""
-        # This is a simplified approach - in a real implementation, you'd want to register
-        # wizard classes properly and look them up
-        from bot.wizards.rank_wizard import RankWizard
-
-        if wizard_id == "RankWizard":
-            return RankWizard()
+        """Helper to get wizard instance by ID using registry."""
+        if wizard_id in self.wizard_registry:
+            wizard_class = self.wizard_registry[wizard_id]
+            return wizard_class()
         return None
 
     async def _process_wizard_completion(self, user_id: int, context: WizardContext, fsm_context: FSMContext, session: AsyncSession):
@@ -152,57 +162,31 @@ class WizardService:
         if not wizard:
             return None, "Wizard not found"
 
-        current_step = wizard.steps[context.current_step_index]
-
-        # Handle VIP question callback
-        if current_step.name == "ask_vip":
-            if callback_data in ["yes", "no"]:
-                # Save the VIP information in context
-                is_vip = (callback_data == "yes")
-                context.data.update(vip=is_vip)
-
-                # If VIP is yes, we need to ask for days
-                # If VIP is no, we can skip the VIP days step
-                if is_vip:
-                    # Advance to next step to ask for VIP days
-                    context.current_step_index += 1
-
-                    # Update FSM context
-                    await fsm_context.update_data(wizard_context=context)
-
-                    # Render the next step which should ask for VIP days
-                    if context.current_step_index < len(wizard.steps):
-                        next_step = wizard.steps[context.current_step_index]
-                        message_text = next_step.text_provider(context)
-                        keyboard = next_step.keyboard_provider(context) if next_step.keyboard_provider else None
-                        return {"text": message_text, "keyboard": keyboard}, "Waiting for VIP days"
-                    else:
-                        # If no more steps, complete the wizard
-                        result = await self._process_wizard_completion(user_id, context, fsm_context, session)
-                        return result, "Wizard completed"
-                else:
-                    # If no VIP, skip to next step - if there are further steps, we'll need to handle
-                    # conditional logic differently. For now, assume no more steps after VIP days.
-                    # We need to advance past the VIP days step
-                    if context.current_step_index + 1 < len(wizard.steps):
-                        context.current_step_index += 1  # Skip the VIP days step
-
-                        # If we're now at the end (no more steps), complete the wizard
-                        if context.current_step_index >= len(wizard.steps):
-                            result = await self._process_wizard_completion(user_id, context, fsm_context, session)
-                            return result, "Wizard completed"
-                        else:
-                            # If there are more steps after VIP days, move to the next one
-                            next_step = wizard.steps[context.current_step_index]
-                            message_text = next_step.text_provider(context)
-                            keyboard = next_step.keyboard_provider(context) if next_step.keyboard_provider else None
-                            await fsm_context.update_data(wizard_context=context)
-                            return {"text": message_text, "keyboard": keyboard}, "Moved to next step"
-                    else:
-                        # If there are no more steps, complete the wizard
-                        result = await self._process_wizard_completion(user_id, context, fsm_context, session)
-                        return result, "Wizard completed"
-            else:
-                return None, "Invalid callback"
-        else:
+        # Let the wizard handle its own callback
+        # This uses a method that the BaseWizard class should implement for callback processing
+        result = await wizard.process_callback(context, callback_data, self)
+        if result is None:
             return None, "Callback not handled for this step"
+
+        # Update context after processing
+        await fsm_context.update_data(wizard_context=context)
+
+        # Check if the wizard is completed after callback processing
+        if result.get('completed'):
+            completion_result = await self._process_wizard_completion(user_id, context, fsm_context, session)
+            return completion_result, "Wizard completed"
+
+        # Otherwise, return the next step to render
+        next_step_index = result.get('next_step_index', context.current_step_index)
+        if next_step_index < len(wizard.steps):
+            context.current_step_index = next_step_index
+            await fsm_context.update_data(wizard_context=context)
+            next_step = wizard.steps[context.current_step_index]
+            message_text = next_step.text_provider(context)
+            keyboard = next_step.keyboard_provider(context) if next_step.keyboard_provider else None
+            status = result.get('status', 'Callback processed')
+            return {"text": message_text, "keyboard": keyboard}, status
+        else:
+            # If no more steps after callback, complete the wizard
+            completion_result = await self._process_wizard_completion(user_id, context, fsm_context, session)
+            return completion_result, "Wizard completed"

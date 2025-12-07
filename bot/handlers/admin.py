@@ -19,6 +19,8 @@ from bot.services.stats_service import StatsService
 from bot.services.dependency_injection import Services
 from bot.services.exceptions import ServiceError, SubscriptionError
 from bot.services.event_bus import Events
+from bot.services.wizard_service import WizardService
+from bot.wizards.rank_wizard import RankWizard
 from bot.database.models import RewardContentFile, RewardContentPack
 from bot.states import SubscriptionTierStates, ChannelSetupStates, PostSendingStates, ReactionSetupStates, WaitTimeSetupStates, ContentPackCreationStates, RankConfigStates, AdminOnboardingStates
 from bot.config import Settings
@@ -2234,10 +2236,9 @@ async def start_rank_creation_wizard(callback_query: CallbackQuery, state: FSMCo
     """
     Start the wizard for creating a new rank.
     """
-    from bot.wizards.rank_wizard import RankWizard
-    from bot.services.wizard_service import WizardService
 
-    wizard_service = WizardService()
+    # Get the wizard service from the dependency injection container
+    wizard_service = services.wizard
 
     # Start the wizard
     await wizard_service.start_wizard(

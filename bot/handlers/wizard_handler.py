@@ -4,11 +4,40 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.wizard_service import WizardService, WizardStates
-from bot.database.session import async_session
 
 
 router = Router()
 wizard_service = WizardService()
+
+
+def _create_completion_message(result):
+    """Helper to create completion messages."""
+    if hasattr(result, 'name'):
+        return f"✅ Rango '{result.name}' creado exitosamente!"
+    elif isinstance(result, dict) and 'name' in result:
+        return f"✅ Rango '{result['name']}' creado exitosamente!"
+    else:
+        return "✅ Proceso completado exitosamente!"
+
+
+def _handle_completion_response(response, message_func, edit_func):
+    """Helper to handle completion responses based on the type of interaction."""
+    if hasattr(response, 'name'):
+        completion_msg = f"✅ Rango '{response.name}' creado exitosamente!"
+    elif isinstance(response, dict) and 'name' in response:
+        completion_msg = f"✅ Rango '{response['name']}' creado exitosamente!"
+    else:
+        completion_msg = "✅ Proceso completado exitosamente!"
+
+    return completion_msg
+
+
+async def _handle_error_for_user_id(user_id, state, wizard_service, error_message):
+    """Helper to handle errors by cleaning up state and notifying user."""
+    if user_id in wizard_service.active_wizards:
+        del wizard_service.active_wizards[user_id]
+    await state.clear()
+    return error_message
 
 
 @router.message(F.state == WizardStates.active)
@@ -23,12 +52,8 @@ async def handle_wizard_message(message: Message, state: FSMContext, session: As
         if result:
             if status == "Wizard completed":
                 # If the wizard has completed, result might be the created rank
-                if hasattr(result, 'name'):
-                    await message.answer(f"✅ Rango '{result.name}' creado exitosamente!")
-                elif isinstance(result, dict) and 'name' in result:
-                    await message.answer(f"✅ Rango '{result['name']}' creado exitosamente!")
-                else:
-                    await message.answer("✅ Proceso completado exitosamente!")
+                completion_msg = _handle_completion_response(result, message.answer, lambda text: None)
+                await message.answer(completion_msg)
             else:
                 if "error" in result:
                     await message.answer(result["error"])
@@ -37,10 +62,9 @@ async def handle_wizard_message(message: Message, state: FSMContext, session: As
                 await message.answer(result["text"], reply_markup=result.get("keyboard"))
     except Exception as e:
         # Clean up wizard state on error
-        if user_id in wizard_service.active_wizards:
-            del wizard_service.active_wizards[user_id]
-        await state.clear()
-        await message.answer("❌ Ocurrió un error durante el proceso. Por favor, intenta de nuevo.")
+        error_msg = await _handle_error_for_user_id(user_id, state, wizard_service,
+                                                   "❌ Ocurrió un error durante el proceso. Por favor, intenta de nuevo.")
+        await message.answer(error_msg)
 
 
 @router.callback_query(F.state == WizardStates.active)
@@ -56,20 +80,11 @@ async def handle_wizard_callback(callback_query: CallbackQuery, state: FSMContex
         if result:
             if status == "Wizard completed":
                 # If the wizard has completed, result might be the created rank
-                if hasattr(result, 'name'):
-                    await callback_query.message.edit_text(f"✅ Rango '{result.name}' creado exitosamente!")
-                elif isinstance(result, dict) and 'name' in result:
-                    await callback_query.message.edit_text(f"✅ Rango '{result['name']}' creado exitosamente!")
-                else:
-                    await callback_query.message.edit_text("✅ Proceso completado exitosamente!")
-            elif status == "Waiting for VIP days":
-                # If waiting for VIP days, send the message with keyboard
-                await callback_query.message.edit_text(
-                    result["text"],
-                    reply_markup=result.get("keyboard")
-                )
-            elif status == "Moved to next step":
-                # If moved to next step after skipping VIP days, send the message with keyboard
+                completion_msg = _handle_completion_response(result, lambda text: None,
+                                                            callback_query.message.edit_text)
+                await callback_query.message.edit_text(completion_msg)
+            elif status in ["Waiting for VIP days", "Moved to next step"]:
+                # If waiting for VIP days or moved to next step, send the message with keyboard
                 await callback_query.message.edit_text(
                     result["text"],
                     reply_markup=result.get("keyboard")
@@ -81,7 +96,6 @@ async def handle_wizard_callback(callback_query: CallbackQuery, state: FSMContex
         await callback_query.answer()  # Always answer the callback
     except Exception as e:
         # Clean up wizard state on error
-        if user_id in wizard_service.active_wizards:
-            del wizard_service.active_wizards[user_id]
-        await state.clear()
-        await callback_query.answer("❌ Error en el proceso. Por favor, intenta de nuevo.", show_alert=True)
+        error_msg = await _handle_error_for_user_id(user_id, state, wizard_service,
+                                                   "❌ Error en el proceso. Por favor, intenta de nuevo.")
+        await callback_query.answer(error_msg, show_alert=True)

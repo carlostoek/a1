@@ -86,6 +86,7 @@ Un bot de Telegram multifuncional para la gestión de suscripciones VIP y acceso
   - **Integración con /start**: El comando /start ahora también maneja enlaces de referidos en adición a tokens VIP
   - **Mecánica de recompensas**: Referidor obtiene 100 puntos y referido obtiene 50 puntos al registrarse
   - **Protección contra fraude**: Sistema anti-bucle que previene auto-referidos y validaciones para evitar abusos
+
 - **Wizard Engine**: Nuevo motor de wizards para crear flujos interactivos complejos con validación y lógica condicional
   - **Arquitectura en 3 capas**: Capa de presentación, capa de servicio y capa de core para máxima modularidad
   - **RankWizard**: Nuevo wizard para crear rangos de gamificación de manera guiada con validación de datos
