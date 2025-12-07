@@ -84,8 +84,9 @@ class MenuFactory:
             keyboard.append(nav_row)
 
         # Retorno estandarizado
-        escaped_title = escape_markdownv2_text(title.upper())
-        menu_text = f"*{escaped_title}*\n\nSelecciona una opción:"
+        # NOTE: Don't escape the title before applying bold formatting
+        # The bold asterisks (*) must not be escaped for MarkdownV2 to work
+        menu_text = f"*{title.upper()}*\n\nSelecciona una opción:"
         if description:
             escaped_description = escape_markdownv2_text(description)
             menu_text = f"{escaped_description}\n\n{menu_text}"

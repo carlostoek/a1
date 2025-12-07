@@ -141,8 +141,8 @@ class ConfigService:
             # Commit the changes to the database
             await session.commit()
 
-            # Update the cached config
-            cls._config_cache = config
+            # Clear the cached config to force a refresh on next request
+            cls._config_cache = None
 
             return config
         except SQLAlchemyError as e:
@@ -261,8 +261,8 @@ class ConfigService:
             # Commit the changes to the database
             await session.commit()
 
-            # Update the cached config
-            cls._config_cache = config
+            # Clear the cached config to force a refresh on next request
+            cls._config_cache = None
 
             return {
                 "success": True,
@@ -334,6 +334,9 @@ class ConfigService:
 
             await session.commit()
 
+            # Clear the cached config to force a refresh on next request
+            cls._config_cache = None
+
             return reactions_list
         except SQLAlchemyError as e:
             await session.rollback()
@@ -367,8 +370,8 @@ class ConfigService:
 
             await session.commit()
 
-            # Update the cached config
-            cls._config_cache = config
+            # Clear the cached config to force a refresh on next request
+            cls._config_cache = None
 
             return {
                 "success": True,
@@ -427,8 +430,8 @@ class ConfigService:
 
             await session.commit()
 
-            # Update the cached config
-            cls._config_cache = config
+            # Clear the cached config to force a refresh on next request
+            cls._config_cache = None
 
             return {
                 "success": True,
@@ -459,8 +462,8 @@ class ConfigService:
             config.welcome_message = welcome_message
             await session.commit()
 
-            # Update the cached config
-            cls._config_cache = config
+            # Clear the cached config to force a refresh on next request
+            cls._config_cache = None
 
             return {
                 "success": True,

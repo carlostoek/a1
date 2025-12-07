@@ -10,6 +10,7 @@ from bot.services.channel_service import ChannelManagementService
 from bot.services.notification_service import NotificationService
 from bot.services.event_bus import EventBus
 from bot.services.gamification_service import GamificationService
+from bot.services.wizard_service import WizardService
 
 
 class ServiceContainer:
@@ -40,6 +41,9 @@ class ServiceContainer:
         )
         # IMPORTANTE: Iniciar los listeners
         self._gamification_service.setup_listeners()
+
+        # Crear el servicio de wizard
+        self._wizard_service = WizardService()
         # Inicializar otros servicios aquí...
 
     # --- Propiedades de Acceso Rápido ---
@@ -78,6 +82,11 @@ class ServiceContainer:
     def gamification(self) -> GamificationService:
         """Acceso al servicio de Gamificación (Puntos y rangos)."""
         return self._gamification_service
+
+    @property
+    def wizard(self) -> WizardService:
+        """Acceso al servicio de Wizard (Asistentes interactivos)."""
+        return self._wizard_service
 
 
 # --- Definición del Resolver de Dependencias de Aiogram 3 ---

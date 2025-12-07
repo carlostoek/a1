@@ -265,6 +265,54 @@ Implementado para administrar recompensas asociadas a los rangos de gamificació
   - `reward_vip_days`: Número de días VIP otorgados como recompensa
   - `reward_content_pack_id`: ID del pack de contenido otorgado como recompensa (relación con RewardContentPack)
 
+## Wizard Engine
+
+Implementado para proporcionar una arquitectura flexible y reutilizable para flujos de interacción complejos con los usuarios:
+
+### 3-Layer Architecture
+
+#### 1. Core Layer (`bot/wizards/`)
+- **Core Components**: Definiciones de base para contextos, pasos y wizards
+  - `WizardContext`: Almacena el estado actual de un wizard activo (ID, paso actual, datos recolectados)
+  - `WizardStep`: Define un paso individual con proveedores de texto, teclado, validadores y callbacks
+  - `BaseWizard`: Clase base abstracta que define la estructura de un wizard
+- **Validators**: Validadores comunes reutilizables para diferentes tipos de entrada
+- **UI Renderer**: Componentes para generar interfaces de usuario estándar (por ejemplo, teclados Sí/No)
+
+#### 2. Service Layer (`bot/services/wizard_service.py`)
+- **WizardService**: Servicio central que gestiona la ejecución de wizards
+  - Gestión de sesiones activas de wizards por usuario
+  - Procesamiento de entrada de texto y callbacks
+  - Validación y transición entre pasos
+  - Manejo de completado y limpieza de contexto
+  - Integración con el sistema de inyección de dependencias (services container)
+- **State Management**: Integración con FSM de Aiogram para persistencia de estado
+
+#### 3. Presentation Layer (`bot/handlers/wizard_handler.py`)
+- **Generic Handlers**: Manejadores genéricos que pueden trabajar con cualquier wizard implementado
+  - `handle_wizard_message`: Procesa entradas de texto durante wizards activos
+  - `handle_wizard_callback`: Procesa entradas de callback (botones inline) durante wizards activos
+- **Message Routing**: Utiliza el estado FSM "wizard_active" para enrutar mensajes a los handlers correctos
+
+### Implementación de RankWizard
+
+- **Flujo de Creación de Rangos**: Nuevo wizard para crear rangos de gamificación de manera guiada
+  - Paso 1: Ingreso del nombre del rango (validación de longitud mínima)
+  - Paso 2: Ingreso de puntos mínimos requeridos (validación numérica)
+  - Paso 3: Pregunta sobre recompensas VIP (Sí/No con teclado inline)
+  - Paso 4: Si aplica, ingreso de días VIP (validación numérica)
+- **Integración con GamificationService**: Al completar el wizard, crea el rango en la base de datos
+- **Handler de Inicio**: Nuevo handler `start_rank_creation_wizard` en admin.py para iniciar el wizard
+
+### Beneficios del Wizard Engine
+
+- **Modularidad**: Fácil creación de nuevos wizards sin duplicar lógica de manejo de estado
+- **Reutilización**: Componentes compartidos para validación, UI y manejo de estado
+- **Flexibilidad**: Soporte para pasos condicionales y lógica de negocio personalizada
+- **Consistencia**: Experiencia de usuario uniforme para flujos interactivos
+- **Integración**: Se integra completamente con el sistema de servicios y base de datos existente
+- **Escalabilidad**: Arquitectura en capas permite extender funcionalidades sin afectar otras partes del sistema
+
 ## Mejoras de Código
 
 ### Seguridad de Tipos

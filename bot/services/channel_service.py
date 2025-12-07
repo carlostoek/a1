@@ -177,6 +177,10 @@ class ChannelManagementService:
 
             await session.commit()
 
+            # Clear the config cache to ensure fresh data on next access
+            from bot.services.config_service import ConfigService
+            ConfigService.clear_cache()
+
             return {"success": True, "channel_id": channel_id}
         except SQLAlchemyError as e:
             await session.rollback()
@@ -216,7 +220,12 @@ class ChannelManagementService:
 
                 # Calculate how much time has passed since the request
                 current_time = datetime.now(timezone.utc)
-                time_since_request = (current_time - pending_request.request_date).total_seconds() / 60  # Convert to minutes
+                # Ensure both datetimes are timezone-aware for comparison
+                request_date = pending_request.request_date
+                if request_date.tzinfo is None:
+                    # If request_date is naive, make it timezone-aware assuming UTC
+                    request_date = request_date.replace(tzinfo=timezone.utc)
+                time_since_request = (current_time - request_date).total_seconds() / 60  # Convert to minutes
                 remaining_minutes = max(0, wait_time_minutes - time_since_request)
 
                 return {

@@ -47,6 +47,9 @@ async def run_migrations():
         await _add_column_if_not_exists("gamification_profiles", "last_daily_claim", "DATETIME")
         await _add_column_if_not_exists("bot_config", "vip_content_protection", "BOOLEAN DEFAULT 0")
         await _add_column_if_not_exists("bot_config", "free_content_protection", "BOOLEAN DEFAULT 0")
+        await _add_column_if_not_exists("bot_config", "welcome_message", "TEXT DEFAULT '¡Bienvenido al Bot Oficial! 🚀\\nUsa /daily para tu recompensa.'")
+        await _add_column_if_not_exists("bot_config", "daily_reward_points", "INTEGER DEFAULT 50")
+        await _add_column_if_not_exists("bot_config", "referral_reward_points", "INTEGER DEFAULT 100")
 
 
 async def seed_ranks():
