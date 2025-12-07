@@ -98,6 +98,24 @@ async def safe_callback_answer(callback_query: CallbackQuery, text: str, show_al
     escaped_text = escape_markdownv2_text(text)
     await callback_query.answer(escaped_text, show_alert=show_alert)
 
+
+async def send_menu(callback_query: CallbackQuery, menu_data: dict):
+    """
+    Send a pre-formatted menu from MenuFactory without escaping.
+    The menu text is already properly formatted with MarkdownV2 syntax.
+    """
+    try:
+        await callback_query.message.edit_text(
+            menu_data['text'],
+            reply_markup=menu_data['markup'],
+            parse_mode="MarkdownV2"
+        )
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            await callback_query.answer()
+        else:
+            raise e
+
 def get_main_menu_kb():
     """Generate main menu keyboard with buttons: [Gestión VIP, Gestión Free, Config, Stats]"""
     keyboard = InlineKeyboardBuilder()
@@ -728,11 +746,7 @@ async def admin_main_menu(callback_query: CallbackQuery, session: AsyncSession, 
         has_main=False   # Main menu doesn't have main button
     )
 
-    await safe_edit_message(
-        callback_query,
-        menu_data['text'],
-        menu_data['markup']
-    )
+    await send_menu(callback_query, menu_data)
 
 @admin_router.callback_query(F.data == "admin_vip")
 async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
@@ -784,11 +798,7 @@ async def admin_vip(callback_query: CallbackQuery, session: AsyncSession):
         has_main=True
     )
 
-    await safe_edit_message(
-        callback_query,
-        menu_data['text'],
-        menu_data['markup']
-    )
+    await send_menu(callback_query, menu_data)
 
 @admin_router.callback_query(F.data == "admin_free")
 async def admin_free(callback_query: CallbackQuery, session: AsyncSession):
@@ -828,11 +838,7 @@ async def admin_free(callback_query: CallbackQuery, session: AsyncSession):
         has_main=True
     )
 
-    await safe_edit_message(
-        callback_query,
-        menu_data['text'],
-        menu_data['markup']
-    )
+    await send_menu(callback_query, menu_data)
 
 @admin_router.callback_query(F.data == "admin_stats")
 async def admin_stats_menu(callback_query: CallbackQuery, session: AsyncSession):
@@ -851,11 +857,7 @@ async def admin_stats_menu(callback_query: CallbackQuery, session: AsyncSession)
         has_main=True
     )
 
-    await safe_edit_message(
-        callback_query,
-        menu_data['text'],
-        menu_data['markup']
-    )
+    await send_menu(callback_query, menu_data)
 
 
 @admin_router.callback_query(F.data == "stats_general")
@@ -1533,11 +1535,7 @@ async def admin_config(callback_query: CallbackQuery, session: AsyncSession):
         has_main=True
     )
 
-    await safe_edit_message(
-        callback_query,
-        menu_data['text'],
-        menu_data['markup']
-    )
+    await send_menu(callback_query, menu_data)
 
 
 @admin_router.callback_query(F.data.in_({"vip_config", "free_config"}))
@@ -1568,11 +1566,7 @@ async def admin_channel_config(callback_query: CallbackQuery):
         has_main=True
     )
 
-    await safe_edit_message(
-        callback_query,
-        menu_data['text'],
-        menu_data['markup']
-    )
+    await send_menu(callback_query, menu_data)
 
 
 @admin_router.callback_query(F.data == "config_tiers")
@@ -1790,11 +1784,7 @@ async def config_channels_menu(callback_query: CallbackQuery):
         has_main=True
     )
 
-    await safe_edit_message(
-        callback_query,
-        menu_data['text'],
-        menu_data['markup']
-    )
+    await send_menu(callback_query, menu_data)
 
 
 @admin_router.callback_query(F.data.startswith("setup_"))
